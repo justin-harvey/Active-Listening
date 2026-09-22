@@ -668,20 +668,26 @@ const player = {
     this.rate = SPEEDS[this.speedIdx];
     this.idx = 0;
 
-    // readable blocks (shared for tts + chapter menu)
+    // readable blocks -> flatten to sentence-sized UNITS. iOS Safari stalls on
+    // long utterances (it reads to the first period and stops), so we speak one
+    // short sentence at a time. Each unit keeps its block element for the
+    // follow-along highlight and the chapter label on its first sentence.
     this.blocks = [...document.querySelectorAll('#article [data-read]')].map(el=>({el,text:(el.getAttribute('data-read')||el.textContent).trim(),chapter:el.dataset.chapter||null}));
-    const full = this.blocks.map(b=>b.text).join(' ');
+    this.units = [];
+    this.blocks.forEach(b=>{ splitSentences(b.text).forEach((t,si)=>this.units.push({el:b.el, text:t, chapter: si===0?b.chapter:null})); });
+    if (!this.units.length) this.units=[{el:document.body,text:'',chapter:null}];
+    const full = this.units.map(u=>u.text).join(' ');
     this.totalChars = Math.max(1, full.length);
-    let acc=0; this.charsBefore = this.blocks.map(b=>{const v=acc;acc+=b.text.length+1;return v;});
+    let acc=0; this.charsBefore = this.units.map(u=>{const v=acc;acc+=u.text.length+1;return v;});
     this.approxTotalSec = this.totalChars/15/this.rate;
 
-    // chapters
-    this.chapters = this.blocks.filter(b=>b.chapter);
+    // chapters — jump to the unit that begins each chapter
+    this.chapters = this.units.map((u,idx)=>({el:u.el,chapter:u.chapter,idx})).filter(u=>u.chapter);
     this.els.chList.innerHTML='';
     this.chapters.forEach((c,i)=>{
       const b=document.createElement('button'); b.className='ch';
       b.innerHTML=`<span class="n">${String(i+1).padStart(2,'0')}</span> <span>${esc(c.chapter)}</span>`;
-      b.onclick=()=>{ c.el.scrollIntoView({behavior:'smooth',block:'start'}); this.els.chapters.open=false; if(this.mode==='tts'&&this.playing) this.jumpTo(this.blocks.indexOf(c)); };
+      b.onclick=()=>{ c.el.scrollIntoView({behavior:'smooth',block:'start'}); this.els.chapters.open=false; if(this.mode==='tts'&&this.playing) this.jumpTo(c.idx); };
       this.els.chList.appendChild(b);
     });
 
@@ -815,7 +821,7 @@ const player = {
   },
   stop(){ this.stopInternal(); },
   stopInternal(){
-    clearTimeout(this._t);
+    clearTimeout(this._t); clearTimeout(this._watch);
     if ('speechSynthesis' in window) try{ speechSynthesis.cancel(); }catch(e){}
     try{ audioEl.pause(); }catch(e){}
     this.playing=false; document.body.classList.remove('playing'); this.clearHL(); this.idx=0;
@@ -831,53 +837,60 @@ const player = {
 
   seekRel(sec){
     if (this.mode==='audio'){ audioEl.currentTime=Math.max(0,Math.min(audioEl.duration||0, audioEl.currentTime+sec)); return; }
-    const dir=sec>0?1:-1; const jump=Math.max(1,Math.round(Math.abs(sec)/8));
-    this.jumpTo(Math.max(0,Math.min(this.blocks.length-1,this.idx+dir*jump)));
+    const dir=sec>0?1:-1; const jump=Math.max(1,Math.round(Math.abs(sec)/4));
+    this.jumpTo(Math.max(0,Math.min(this.units.length-1,this.idx+dir*jump)));
   },
   seekFraction(f){
     if (this.mode==='audio'){ if(isFinite(audioEl.duration)) audioEl.currentTime=f*audioEl.duration; return; }
-    const target=f*this.totalChars; let i=this.charsBefore.findIndex((c,idx)=>idx===this.blocks.length-1||this.charsBefore[idx+1]>target); if(i<0)i=0; this.jumpTo(i);
+    const target=f*this.totalChars; let i=this.charsBefore.findIndex((c,idx)=>idx===this.units.length-1||this.charsBefore[idx+1]>target); if(i<0)i=0; this.jumpTo(i);
   },
 
-  /* (re)start speech at block i — cancel then speak after a beat, because Chrome
+  /* (re)start speech at unit i — cancel then speak after a beat, because Chrome
      drops an utterance spoken in the same tick as cancel(). Used for start/seek. */
   jumpTo(i){
     if (!('speechSynthesis' in window)) return;
-    clearTimeout(this._t);
+    clearTimeout(this._t); clearTimeout(this._watch);
     try{ speechSynthesis.cancel(); }catch(e){}
     this._fails=0;
     this.playing = true; document.body.classList.add('playing');
     this._t = setTimeout(()=>{ try{ speechSynthesis.resume(); }catch(e){} this._speak(i); }, 110);
   },
 
-  /* speak one block and chain to the next WITHOUT cancelling (cancel-in-chain is
-     what caused the freeze). We confirm the utterance actually STARTED before
-     advancing — an utterance that "ends" in a blink without speaking (a failing
-     cloud voice) is treated as a failure and retried/fallen back, so the reader
-     can't silently race to the end. */
+  /* speak ONE sentence unit and chain to the next without cancelling. Guards:
+     - onstart confirms audio actually began (a silent utterance = failure);
+     - a watchdog advances if iOS stalls an utterance without firing onend. */
   _speak(i){
     if (!this.playing || this.mode!=='tts') return;
-    if (i>=this.blocks.length){ this.stopInternal(); this.setProgress(1,this.approxTotalSec,this.approxTotalSec); return; }
+    if (i>=this.units.length){ this.stopInternal(); this.setProgress(1,this.approxTotalSec,this.approxTotalSec); return; }
     this.idx=i;
-    const b=this.blocks[i]; this.highlight(b.el);
+    const unit=this.units[i]; this.highlight(unit.el);
     this.setProgress(this.charsBefore[i]/this.totalChars,(this.charsBefore[i]/this.totalChars)*this.approxTotalSec,this.approxTotalSec);
-    const u=new SpeechSynthesisUtterance(b.text);
+    if (!unit.text){ this._speak(i+1); return; }
+    const u=new SpeechSynthesisUtterance(unit.text);
     if(this.voice) u.voice=this.voice;
     u.lang=(this.voice&&this.voice.lang)||'en-US'; u.rate=this.rate; u.pitch=1;
-    const t0=performance.now(); let started=false;
+    const t0=performance.now(); let started=false, done=false;
+    const clearWatch=()=>clearTimeout(this._watch);
     u.onstart=()=>{ started=true; this._fails=0; };
     u.onend=()=>{
+      if(done) return; done=true; clearWatch();
       if(!this.playing || this.mode!=='tts' || this.idx!==i) return;
-      if(!started && performance.now()-t0 < 400){ this._speakFailed(i); return; } // never actually spoke
+      if(!started && performance.now()-t0 < 350){ this._speakFailed(i); return; } // never actually spoke
       this._fails=0; this._speak(i+1);
     };
     u.onerror=(e)=>{
-      const err=e&&e.error; if(err==='interrupted'||err==='canceled') return;
+      const err=e&&e.error; if(done) return;
+      if(err==='interrupted'||err==='canceled'){ done=true; clearWatch(); return; }
+      done=true; clearWatch();
       if(!this.playing || this.mode!=='tts' || this.idx!==i) return;
       console.warn('speech error:',err); this._speakFailed(i);
     };
+    // watchdog: iOS Safari sometimes halts a long-ish utterance and never fires
+    // onend. Estimate speak time and, if nothing happened, cancel and move on.
+    const estMs = (unit.text.length/(11*this.rate))*1000 + 4000;
+    this._watch=setTimeout(()=>{ if(done||!this.playing||this.idx!==i) return; done=true; try{speechSynthesis.cancel();}catch(e){} this._speak(i+1); }, estMs);
     try{ speechSynthesis.resume(); speechSynthesis.speak(u); }
-    catch(err){ console.warn(err); this._speakFailed(i); }
+    catch(err){ done=true; clearWatch(); console.warn(err); this._speakFailed(i); }
   },
 
   /* an utterance produced no sound — recover instead of skipping */
@@ -894,7 +907,7 @@ const player = {
   },
 
   setProgress(frac,cur,dur){ frac=Math.max(0,Math.min(1,frac||0)); this.els.fill.style.width=(frac*100)+'%'; this.els.knob.style.left=(frac*100)+'%'; const pre=this.mode==='tts'?'~':''; if(cur!=null)this.els.tCur.textContent=fmt(cur); if(dur!=null)this.els.tDur.textContent=pre+fmt(dur); },
-  highlight(el){ this.clearHL(); this._hl=el; el.classList.add('read-active'); const r=el.getBoundingClientRect(); if(r.top<160||r.bottom>innerHeight-40) el.scrollIntoView({behavior:'smooth',block:'center'}); },
+  highlight(el){ if(this._hl===el) return; this.clearHL(); this._hl=el; el.classList.add('read-active'); const r=el.getBoundingClientRect(); if(r.top<160||r.bottom>innerHeight-40) el.scrollIntoView({behavior:'smooth',block:'center'}); },
   clearHL(){ if(this._hl){ this._hl.classList.remove('read-active'); this._hl=null; } },
 };
 
@@ -906,6 +919,18 @@ audioEl.addEventListener('play',()=>{ if(player.mode==='audio') player.setPlayin
 audioEl.addEventListener('pause',()=>{ if(player.mode==='audio' && !audioEl.ended) player.setPlaying(false); });
 
 function fmt(s){ if(!isFinite(s)||s<0)return '--:--'; s=Math.round(s); const m=Math.floor(s/60),ss=s%60; return m+':'+String(ss).padStart(2,'0'); }
+
+/* split a paragraph into sentence-sized chunks (kept short so iOS speaks them
+   reliably); long sentences are hard-split so no single utterance is huge. */
+function splitSentences(text){
+  const parts = (text.match(/[^.!?]+[.!?]+["'”’)\]]*\s*|[^.!?]+$/g) || [text]).map(s=>s.trim()).filter(Boolean);
+  const out=[];
+  for (const p of parts){
+    if (p.length<=240){ out.push(p); continue; }
+    for (let i=0;i<p.length;i+=240){ out.push(p.slice(i,i+240).trim()); } // very long sentence
+  }
+  return out.length ? out : [text];
+}
 
 /* synthesize narration via TTS_ENDPOINT; persist to Supabase Storage when possible */
 async function synthNarration(post, text, persist){
@@ -965,8 +990,17 @@ function updatePositionState(){
   if (isFinite(audioEl.duration)){ try{ navigator.mediaSession.setPositionState({duration:audioEl.duration, position:audioEl.currentTime, playbackRate:audioEl.playbackRate}); }catch(e){} }
 }
 
-/* keep Chrome TTS alive on longer reads (tts mode only) */
-setInterval(()=>{ if(player.mode==='tts' && player.playing && 'speechSynthesis' in window && speechSynthesis.speaking && !speechSynthesis.paused){ speechSynthesis.pause(); speechSynthesis.resume(); } },12000);
+/* Keep TTS alive. The pause()/resume() trick defeats Chrome's ~15s cutoff but
+   BREAKS speech on Apple WebKit (iOS/Safari), so only run it off-Apple; on Apple
+   we just resume if something accidentally left it paused. */
+const IS_APPLE = /iP(hone|ad|od)/.test(navigator.platform)
+  || (/^((?!chrome|android|crios|edg).)*safari/i.test(navigator.userAgent))
+  || (navigator.maxTouchPoints>1 && /Mac/.test(navigator.platform));
+setInterval(()=>{
+  if(player.mode!=='tts' || !player.playing || !('speechSynthesis' in window)) return;
+  if(speechSynthesis.paused){ try{ speechSynthesis.resume(); }catch(e){} return; }
+  if(!IS_APPLE && speechSynthesis.speaking){ try{ speechSynthesis.pause(); speechSynthesis.resume(); }catch(e){} }
+}, 10000);
 document.addEventListener('keydown',e=>{ if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; if(!player.mounted)return; if(e.code==='Space'){e.preventDefault();player.toggle();} else if(e.code==='ArrowLeft')player.seekRel(-15); else if(e.code==='ArrowRight')player.seekRel(30); });
 
 /* boot */
