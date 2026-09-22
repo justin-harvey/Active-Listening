@@ -738,18 +738,31 @@ const player = {
   loadVoices(){
     const all = speechSynthesis.getVoices().filter(v=>v.lang && v.lang.startsWith('en'));
     if (!all.length) return;
+    const remote = v=>/google|online|cloud|natural|neural|wavenet/i.test(v.name+' '+v.voiceURI) && !v.localService;
+    // Prefer ON-DEVICE voices: they always produce audio, where cloud voices can
+    // silently fail (which was making the reader skip through with no sound).
     const score = v=>{ const n=(v.name+' '+v.voiceURI).toLowerCase(); let s=0;
-      if(/natural|neural|premium|enhanced/.test(n))s+=100; if(/google/.test(n))s+=40;
-      if(/samantha|ava|allison|siri|zoe|serena|jenny|guy|aria|libby|nova/.test(n))s+=30;
-      if(v.lang==='en-US'||v.lang==='en-GB')s+=10; if(v.localService)s+=5; return s; };
+      if(v.localService)s+=1000;                                   // on-device wins
+      if(/samantha|alex|daniel|karen|moira|tessa|fiona|serena|ava|allison|victoria/.test(n))s+=40;
+      if(/premium|enhanced|natural|neural/.test(n))s+=20;
+      if(v.lang==='en-US'||v.lang==='en-GB')s+=10;
+      if(remote(v))s-=200;                                         // deprioritise cloud
+      return s; };
     all.sort((a,b)=>score(b)-score(a));
     this.voices=all;
+    // keep any current pick if it survived a voiceschanged refresh
+    const prevURI = this.voice && this.voice.voiceURI;
     this.els.voiceSelect.innerHTML='';
-    all.forEach((v,i)=>{ const o=document.createElement('option'); o.value=i; const premium=/natural|neural|premium|enhanced/i.test(v.name+v.voiceURI); o.textContent=v.name.replace(/\(.*?\)/,'').trim()+(premium?' ✦':''); this.els.voiceSelect.appendChild(o); });
-    this.els.voiceSelect.value=0; this.voice=all[0];
-    this.els.voiceSelect.onchange=()=>{ this.voice=all[+this.els.voiceSelect.value]; if(this.playing && this.mode==='tts') this.jumpTo(this.idx); };
-    if(this.mode==='tts'){ const best=/natural|neural|premium|enhanced/i.test(this.voice.name+this.voice.voiceURI); this.els.qualityText.textContent=best?'Premium voice ✦':'Enhanced voice'; }
+    all.forEach((v,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=v.name.replace(/\(.*?\)/,'').trim()+(v.localService?'':' ☁'); this.els.voiceSelect.appendChild(o); });
+    let idx = prevURI ? all.findIndex(v=>v.voiceURI===prevURI) : -1;
+    if (idx<0) idx = 0; // best on-device voice
+    this.els.voiceSelect.value=idx; this.voice=all[idx];
+    this.els.voiceSelect.onchange=()=>{ this.voice=all[+this.els.voiceSelect.value]; this._fails=0; this._reflectVoiceQuality(); if(this.playing && this.mode==='tts') this.jumpTo(this.idx); };
+    if(this.mode==='tts') this._reflectVoiceQuality();
   },
+
+  _reflectVoiceQuality(){ if(this.voice) this.els.qualityText.textContent = this.voice.localService ? 'On-device voice' : 'Cloud voice ☁'; },
+  _bestLocalVoice(){ return this.voices.find(v=>v.localService) || null; },
 
   /* ---------------- generate narration on demand ---------------- */
   async generate(){
@@ -813,12 +826,16 @@ const player = {
     if (!('speechSynthesis' in window)) return;
     clearTimeout(this._t);
     try{ speechSynthesis.cancel(); }catch(e){}
+    this._fails=0;
     this.playing = true; document.body.classList.add('playing');
-    this._t = setTimeout(()=>this._speak(i), 110);
+    this._t = setTimeout(()=>{ try{ speechSynthesis.resume(); }catch(e){} this._speak(i); }, 110);
   },
 
   /* speak one block and chain to the next WITHOUT cancelling (cancel-in-chain is
-     what caused the freeze). onerror recovers so a bad utterance can't stall it. */
+     what caused the freeze). We confirm the utterance actually STARTED before
+     advancing — an utterance that "ends" in a blink without speaking (a failing
+     cloud voice) is treated as a failure and retried/fallen back, so the reader
+     can't silently race to the end. */
   _speak(i){
     if (!this.playing || this.mode!=='tts') return;
     if (i>=this.blocks.length){ this.stopInternal(); this.setProgress(1,this.approxTotalSec,this.approxTotalSec); return; }
@@ -828,9 +845,33 @@ const player = {
     const u=new SpeechSynthesisUtterance(b.text);
     if(this.voice) u.voice=this.voice;
     u.lang=(this.voice&&this.voice.lang)||'en-US'; u.rate=this.rate; u.pitch=1;
-    u.onend=()=>{ if(this.playing && this.mode==='tts' && this.idx===i) this._speak(i+1); };
-    u.onerror=(e)=>{ const err=e&&e.error; if(err==='interrupted'||err==='canceled') return; console.warn('speech error:',err); if(this.playing && this.mode==='tts' && this.idx===i) this._speak(i+1); };
-    try{ speechSynthesis.speak(u); }catch(err){ console.warn(err); }
+    const t0=performance.now(); let started=false;
+    u.onstart=()=>{ started=true; this._fails=0; };
+    u.onend=()=>{
+      if(!this.playing || this.mode!=='tts' || this.idx!==i) return;
+      if(!started && performance.now()-t0 < 400){ this._speakFailed(i); return; } // never actually spoke
+      this._fails=0; this._speak(i+1);
+    };
+    u.onerror=(e)=>{
+      const err=e&&e.error; if(err==='interrupted'||err==='canceled') return;
+      if(!this.playing || this.mode!=='tts' || this.idx!==i) return;
+      console.warn('speech error:',err); this._speakFailed(i);
+    };
+    try{ speechSynthesis.resume(); speechSynthesis.speak(u); }
+    catch(err){ console.warn(err); this._speakFailed(i); }
+  },
+
+  /* an utterance produced no sound — recover instead of skipping */
+  _speakFailed(i){
+    this._fails=(this._fails||0)+1;
+    if(this._fails===1 && this.voice && !this.voice.localService){
+      // most likely a failing cloud voice — switch to on-device and retry
+      const local=this._bestLocalVoice();
+      if(local){ this.voice=local; const idx=this.voices.indexOf(local); if(idx>=0)this.els.voiceSelect.value=idx; this._reflectVoiceQuality(); toast('Switched to an on-device voice.'); }
+      setTimeout(()=>{ if(this.playing) this._speak(i); }, 120); return;
+    }
+    if(this._fails<=4){ setTimeout(()=>{ if(this.playing) this._speak(i); }, 150); return; } // brief backoff
+    this.stopInternal(); toast('That voice isn’t producing sound — try another from the voice menu.');
   },
 
   setProgress(frac,cur,dur){ frac=Math.max(0,Math.min(1,frac||0)); this.els.fill.style.width=(frac*100)+'%'; this.els.knob.style.left=(frac*100)+'%'; const pre=this.mode==='tts'?'~':''; if(cur!=null)this.els.tCur.textContent=fmt(cur); if(dur!=null)this.els.tDur.textContent=pre+fmt(dur); },
