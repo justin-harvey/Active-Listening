@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Aloud — thoughts, read out loud</title>
+<meta name="description" content="A place to post your thoughts and let anyone listen. Press play and your phone reads the post to you while you drive, walk, or train." />
+<meta name="theme-color" content="#16130f" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#16130f; --ink-soft:#4a453d; --ink-faint:#8b8478;
+    --paper:#fbfaf7; --card:#ffffff; --line:#e9e4da; --line-strong:#d8d1c4;
+    --accent:#e8543a; --accent-dark:#c53f28; --accent-wash:#fdeee9;
+    --radius:16px; --shadow:0 1px 2px rgba(22,19,15,.05), 0 10px 30px rgba(22,19,15,.06);
+    --maxw:720px; font-synthesis:none; -webkit-text-size-adjust:100%;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:"Inter",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.6}
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--accent-wash)}
+
+  /* nav */
+  .nav{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px clamp(16px,5vw,40px);background:rgba(251,250,247,.82);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.02em;font-size:19px;cursor:pointer}
+  .brand .mark{width:30px;height:30px;border-radius:9px;background:var(--ink);display:grid;place-items:center;color:#fff}
+  .brand .mark svg{width:17px;height:17px}
+  .brand small{color:var(--ink-faint);font-weight:500;font-size:12.5px;letter-spacing:0}
+  @media(max-width:560px){.brand small{display:none}}
+  .nav-actions{display:flex;align-items:center;gap:10px}
+  .btn{font:inherit;font-weight:600;font-size:14px;cursor:pointer;border-radius:999px;border:1px solid var(--line-strong);background:var(--card);color:var(--ink);padding:9px 16px;transition:.15s ease;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+  .btn:hover{border-color:var(--ink);transform:translateY(-1px)}
+  .btn svg{width:16px;height:16px}
+  .btn.solid{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .btn.solid:hover{background:#000}
+  .btn.accent{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.accent:hover{background:var(--accent-dark);border-color:var(--accent-dark)}
+  .btn.small{padding:7px 13px;font-size:13px}
+
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(16px,5vw,24px)}
+  .wide{max-width:900px}
+
+  /* ---------------- FEED ---------------- */
+  .hero{padding:clamp(30px,7vw,60px) 0 18px;border-bottom:1px solid var(--line);margin-bottom:26px}
+  .hero .eyebrow{color:var(--accent-dark);font-weight:600;font-size:13px;letter-spacing:.02em;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:9px}
+  .hero .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .hero h1{font-family:"Newsreader",serif;font-weight:500;letter-spacing:-.015em;font-size:clamp(32px,6vw,50px);line-height:1.06;margin:0 0 16px;max-width:15ch}
+  .hero p{font-family:"Newsreader",serif;font-size:clamp(17px,3vw,20px);color:var(--ink-soft);line-height:1.5;margin:0 0 22px;max-width:44ch}
+
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+  .chip{font-size:13px;font-weight:600;color:var(--ink-soft);background:var(--card);border:1px solid var(--line);padding:6px 13px;border-radius:999px;cursor:pointer;transition:.15s}
+  .chip:hover{border-color:var(--line-strong)}
+  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  .feed{display:flex;flex-direction:column;gap:16px;padding-bottom:20px}
+  .post-card{display:flex;gap:16px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);transition:.18s;cursor:pointer}
+  .post-card:hover{transform:translateY(-2px);border-color:var(--line-strong)}
+  .pc-play{flex:none;width:52px;height:52px;border-radius:50%;background:var(--accent);color:#fff;border:none;display:grid;place-items:center;cursor:pointer;box-shadow:0 5px 16px rgba(232,84,58,.4);transition:.15s;align-self:center}
+  .pc-play:hover{background:var(--accent-dark);transform:scale(1.06)}
+  .pc-play svg{width:22px;height:22px}
+  .pc-body{flex:1;min-width:0}
+  .pc-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .tag{font-size:11.5px;font-weight:600;color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);padding:3px 9px;border-radius:999px}
+  .tag.hot{color:var(--accent-dark);background:var(--accent-wash);border-color:#f6d8cf}
+  .pc-title{font-family:"Newsreader",serif;font-size:22px;font-weight:600;line-height:1.2;margin:0 0 5px;letter-spacing:-.01em}
+  .pc-dek{color:var(--ink-soft);font-size:14.5px;line-height:1.5;margin:0 0 12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .pc-meta{display:flex;flex-wrap:wrap;align-items:center;gap:14px;color:var(--ink-faint);font-size:12.5px}
+  .pc-meta .who{display:flex;align-items:center;gap:7px;color:var(--ink-soft);font-weight:600}
+  .pc-av{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#f0a58f,#e8543a);color:#fff;display:grid;place-items:center;font-size:10px;font-weight:700;flex:none}
+  .pc-meta .m{display:flex;align-items:center;gap:5px}
+  .pc-meta .m svg{width:13px;height:13px}
+  @media(max-width:520px){.pc-title{font-size:19px}.pc-dek{-webkit-line-clamp:3}}
+
+  .empty{text-align:center;color:var(--ink-faint);padding:40px 0;font-size:14px}
+
+  /* ---------------- READER ---------------- */
+  .article-head{padding:clamp(24px,6vw,44px) 0 4px}
+  .backlink{display:inline-flex;align-items:center;gap:6px;color:var(--ink-faint);font-size:13px;font-weight:600;margin-bottom:20px}
+  .backlink:hover{color:var(--ink)}
+  .backlink svg{width:15px;height:15px}
+  .kicker{display:flex;align-items:center;gap:10px;color:var(--accent-dark);font-weight:600;font-size:13px;letter-spacing:.02em;text-transform:uppercase;margin-bottom:16px}
+  .kicker .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  h1.title{font-family:"Newsreader",serif;font-weight:500;letter-spacing:-.015em;font-size:clamp(32px,6.5vw,50px);line-height:1.08;margin:0 0 16px}
+  .dek{font-family:"Newsreader",serif;font-size:clamp(18px,3vw,21px);color:var(--ink-soft);line-height:1.5;margin:0 0 24px;max-width:38ch}
+  .tags-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+  .tags-row .tag{font-size:12.5px;padding:5px 11px;background:var(--card)}
+  .byline{display:flex;align-items:center;gap:14px;padding:18px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .avatar{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#f0a58f,#e8543a);color:#fff;display:grid;place-items:center;font-weight:700;font-size:18px;flex:none}
+  .byline .who{flex:1;min-width:0}
+  .byline .name{font-weight:700;font-size:15px}
+  .byline .sub{color:var(--ink-faint);font-size:13px}
+  .stats{display:flex;flex-wrap:wrap;gap:18px;padding:18px 0 2px;color:var(--ink-soft);font-size:13.5px}
+  .stats .s{display:flex;align-items:center;gap:7px}
+  .stats .s svg{width:15px;height:15px;color:var(--ink-faint);flex:none}
+  .stats .s b{color:var(--ink);font-weight:600}
+
+  /* listen banner */
+  .listen{position:sticky;top:60px;z-index:50;margin:24px 0 8px}
+  .listen-inner{background:linear-gradient(135deg,#1c1813,#2a231b);color:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;border:1px solid rgba(255,255,255,.06)}
+  .listen-top{display:flex;align-items:center;gap:16px;padding:16px 18px}
+  .play{flex:none;width:58px;height:58px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;color:#fff;display:grid;place-items:center;transition:.15s;box-shadow:0 6px 20px rgba(232,84,58,.45)}
+  .play:hover{background:var(--accent-dark);transform:scale(1.04)}
+  .play:active{transform:scale(.97)}
+  .play:disabled{opacity:.5;cursor:not-allowed}
+  .play svg{width:26px;height:26px}
+  .play .ico-pause{display:none}
+  body.playing .play .ico-play{display:none}
+  body.playing .play .ico-pause{display:block}
+  .listen-copy{flex:1;min-width:0}
+  .listen-label{display:flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#d9b7ad;font-weight:600}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  body.playing .live-dot{animation:pulse 1.6s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(232,84,58,.6)}70%{box-shadow:0 0 0 8px rgba(232,84,58,0)}100%{box-shadow:0 0 0 0 rgba(232,84,58,0)}}
+  .listen-title{font-weight:600;font-size:15.5px;margin-top:3px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .listen-sub{color:#a89f92;font-size:12.5px;margin-top:1px}
+  .mini{flex:none;display:flex;align-items:center;gap:6px}
+  .iconbtn{width:38px;height:38px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:#fff;cursor:pointer;display:grid;place-items:center;transition:.15s;position:relative;font:inherit}
+  .iconbtn:hover{background:rgba(255,255,255,.12)}
+  .iconbtn svg{width:19px;height:19px}
+  .iconbtn.speed{width:auto;padding:0 12px;font-size:13px;font-weight:700}
+  .skip-lbl{position:absolute;bottom:3px;right:3px;font-size:8px;font-weight:700;color:#d9b7ad}
+  .progress-row{display:flex;align-items:center;gap:11px;padding:0 18px 14px}
+  .time{font-size:11.5px;color:#a89f92;font-variant-numeric:tabular-nums;flex:none;width:44px}
+  .time.right{text-align:right}
+  .bar{flex:1;height:6px;border-radius:999px;background:rgba(255,255,255,.12);cursor:pointer;position:relative}
+  .bar .fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--accent);border-radius:999px}
+  .bar .knob{position:absolute;top:50%;left:0;width:14px;height:14px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 1px 4px rgba(0,0,0,.4);opacity:0;transition:opacity .15s}
+  .bar:hover .knob,body.playing .bar .knob{opacity:1}
+  .listen-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 18px;background:rgba(0,0,0,.22);border-top:1px solid rgba(255,255,255,.06);font-size:12px;color:#a89f92}
+  .voice-pick{display:flex;align-items:center;gap:8px;min-width:0}
+  .voice-pick svg{width:15px;height:15px;color:#d9b7ad;flex:none}
+  select.voice{background:transparent;border:none;color:#eee;font:inherit;font-size:12px;font-weight:600;max-width:160px;cursor:pointer;text-overflow:ellipsis}
+  select.voice option{color:#111}
+  .badge-quality{display:flex;align-items:center;gap:6px;font-weight:600;color:#d9b7ad}
+  .badge-quality svg{width:14px;height:14px}
+
+  .chapters{margin:14px 0 4px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);overflow:hidden}
+  .chapters summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:13px 16px;font-weight:600;font-size:14px}
+  .chapters summary::-webkit-details-marker{display:none}
+  .chapters summary svg{width:16px;height:16px;color:var(--ink-faint)}
+  .chapters[open] summary svg.chev{transform:rotate(180deg)}
+  .chapters .ch-list{border-top:1px solid var(--line);padding:6px}
+  .chapters button.ch{display:flex;width:100%;text-align:left;gap:10px;align-items:baseline;background:none;border:none;font:inherit;cursor:pointer;color:var(--ink-soft);padding:9px 10px;border-radius:9px;font-size:14px}
+  .chapters button.ch:hover{background:var(--paper);color:var(--ink)}
+  .chapters button.ch .n{color:var(--ink-faint);font-variant-numeric:tabular-nums;font-size:12px;flex:none;width:20px}
+
+  article{padding:14px 0 10px}
+  article h2{font-family:"Newsreader",serif;font-weight:600;letter-spacing:-.01em;font-size:clamp(23px,4vw,29px);line-height:1.2;margin:44px 0 6px;scroll-margin-top:150px}
+  article p{font-family:"Newsreader",serif;font-size:19.5px;line-height:1.68;margin:22px 0;color:#211d17}
+  article p.lead{font-size:21px}
+  .read-active{background:linear-gradient(transparent 62%,#fbe0d8 62%);transition:background .2s}
+  .pull{font-family:"Newsreader",serif;font-style:italic;font-size:24px;line-height:1.4;color:var(--ink);border-left:3px solid var(--accent);padding:2px 0 2px 22px;margin:34px 0}
+  .divider{display:flex;align-items:center;justify-content:center;gap:10px;margin:40px 0;color:var(--line-strong)}
+  .divider span{width:5px;height:5px;border-radius:50%;background:var(--line-strong)}
+  .vid{display:block;margin:20px 0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--card);box-shadow:var(--shadow);transition:.18s}
+  .vid:hover{transform:translateY(-2px);border-color:var(--line-strong)}
+  .vid .thumb{position:relative;aspect-ratio:16/9;background:#0d0b09;overflow:hidden}
+  .vid .thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:.92}
+  .vid .thumb .ytplay{position:absolute;inset:0;margin:auto;width:60px;height:60px;border-radius:50%;background:rgba(232,84,58,.92);display:grid;place-items:center}
+  .vid .thumb .ytplay svg{width:26px;height:26px;color:#fff}
+  .vid .v-body{padding:16px 18px}
+  .vid .v-eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-dark)}
+  .vid .v-title{font-family:"Newsreader",serif;font-size:20px;font-weight:600;margin:4px 0 8px;color:var(--ink);line-height:1.25}
+  .vid .v-note{font-family:"Newsreader",serif;font-size:17px;line-height:1.6;color:var(--ink-soft);margin:0}
+  .vid .v-link{margin-top:12px;font-family:"Inter",sans-serif;font-size:13px;font-weight:600;color:var(--accent-dark);display:inline-flex;align-items:center;gap:6px}
+  .vid .v-link svg{width:14px;height:14px}
+
+  .endcap{margin:48px 0;padding:28px;border-radius:var(--radius);background:var(--ink);color:#fff;text-align:center}
+  .endcap h3{font-family:"Newsreader",serif;font-weight:500;font-size:26px;margin:0 0 8px}
+  .endcap p{color:#c9c1b4;margin:0 auto 18px;max-width:42ch;font-size:15px;line-height:1.6}
+  .endcap .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+
+  /* ---------------- COMPOSER ---------------- */
+  .composer{padding:clamp(22px,5vw,40px) 0 40px}
+  .composer h2.ttl{font-family:"Newsreader",serif;font-weight:500;font-size:clamp(28px,5vw,38px);margin:0 0 6px}
+  .composer .lede{color:var(--ink-soft);font-size:15px;margin:0 0 26px;max-width:52ch}
+  .field{margin-bottom:20px}
+  .field label{display:block;font-weight:600;font-size:13.5px;margin-bottom:7px}
+  .field label .hint{color:var(--ink-faint);font-weight:500;margin-left:6px}
+  .field input,.field textarea{width:100%;font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line-strong);border-radius:12px;padding:12px 14px;transition:.15s}
+  .field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-wash)}
+  .field textarea{min-height:280px;line-height:1.65;resize:vertical;font-family:"Newsreader",serif;font-size:18px}
+  .field .title-in{font-family:"Newsreader",serif;font-size:24px;font-weight:500}
+  .syntax{background:var(--card);border:1px dashed var(--line-strong);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--ink-soft);margin-bottom:20px;line-height:1.7}
+  .syntax code{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:12px}
+  .composer-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .composer-actions .prev-note{color:var(--ink-faint);font-size:12.5px;margin-left:auto}
+
+  .banner-note{background:var(--accent-wash);border:1px solid #f6d8cf;color:#8a3320;border-radius:12px;padding:12px 15px;font-size:13px;line-height:1.55;margin:0 0 24px;display:flex;gap:10px}
+  .banner-note svg{width:17px;height:17px;flex:none;margin-top:1px}
+
+  footer{border-top:1px solid var(--line);margin-top:40px;padding:30px 0 60px}
+  footer .wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;color:var(--ink-faint);font-size:13px}
+  footer .brand{font-size:16px;cursor:default}
+  footer a{color:var(--ink-soft);font-weight:500;margin-left:18px}
+  footer a:hover{color:var(--ink)}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:12px;font-size:13.5px;font-weight:500;box-shadow:0 12px 40px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:.28s;z-index:80;max-width:90vw;text-align:center}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  @media(max-width:520px){
+    .listen{top:58px}
+    .play{width:52px;height:52px}
+    .mini .iconbtn:not(.speed){display:none}
+    article p{font-size:18.5px}
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="brand" onclick="go('#/')">
+    <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4M7 6v12M11 3v18M15 8v8M19 5v14M23 10v4"/></svg></span>
+    <span>Aloud <small>· thoughts, read out loud</small></span>
+  </div>
+  <div class="nav-actions">
+    <button class="btn accent" onclick="go('#/new')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Post
+    </button>
+  </div>
+</nav>
+
+<main id="app"><!-- routed content --></main>
+
+<footer>
+  <div class="wrap">
+    <div class="brand"><span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4M7 6v12M11 3v18M15 8v8M19 5v14M23 10v4"/></svg></span> Aloud</div>
+    <div>
+      <a href="#/" onclick="go('#/');return false">Feed</a>
+      <a href="#/new" onclick="go('#/new');return false">Write</a>
+      <a href="#" onclick="toast('Listen anywhere — coming soon.');return false">About</a>
+    </div>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* =========================================================================
+   ALOUD — a tiny publish + listen platform (static prototype)
+   -------------------------------------------------------------------------
+   • Feed      #/            list of posts
+   • Reader    #/post/:id    read it, or press play and the phone reads it (TTS)
+   • Composer  #/new         anyone writes a post; it publishes to the feed
+
+   STORAGE: posts live in localStorage right now, so this is a working
+   single-device prototype. To make posts visible across every user's phone,
+   swap the `store` functions for a shared backend (e.g. Supabase table
+   `posts`). Everything else — the reader, the TTS engine, the composer —
+   stays exactly the same.
+   ========================================================================= */
+
+/* ---------- seed: Andrew's first post ---------- */
+const ANDREW_HTML = `
+<p class="lead" data-read>Before you keep reading, I want to ask you for one thing. Do not just read this trying to decide if you agree with me or not. Just think about it, really think. Think about what your own life looks like right now, what has gotten harder, what has gotten more expensive, what you are worried about, and what maybe you haven't really said out loud. If you make it all the way to the end and any of this feels familiar, maybe share it with someone else and ask them what they think too. I am not trying to give everyone the answer here. I am trying to start a conversation that I think a lot of us are already having quietly.</p>
+
+<h2 data-read data-chapter="Why don't we talk about it?">Why does it feel like so many of us are struggling with the same things, but we don't really talk about it?</h2>
+<p data-read>Maybe it is because we don't want to sound like we are complaining. Maybe we don't want people thinking we can't handle our own shit. Maybe some of us are doing okay, so we feel guilty even saying anything when we know someone else has it worse. I don't really know. But I do know that I keep having the same conversations with people lately, and almost everyone seems to have their own version of the same story. Everything costs more, our money doesn't seem to go as far, and we're all quietly trying to figure out what the hell is happening.</p>
+<p data-read>Honestly, I am not sure where to start. I am sitting in a car outside waiting for my kiddo to get done with track, and I need to just start putting thoughts to the keyboard. Over the past months, I have been trying to put together, for me, what this feeling is. Where does it stem from, and is it just a feeling — sometimes us humans build stories that aren't quite true — or is it actually happening? First, I will start with this: we are fine. We don't need anything, but I do think people really should start talking more openly about this, even though it's uncomfortable. I am finding, as the years pass, that a lot of peace comes after hard conversations. It's hard but wonderful after.</p>
+
+<h2 data-read data-chapter="The cars">So a while back I started looking for cars.</h2>
+<p data-read>I knew it was coming, but I kept pushing it off. I would look up what I wanted, check out dealers, and would feel anxious about the costs, interest rates, and the flipping length of loans dealerships are putting on cars to get them to sell — some over 84 months. To be fair, the last car I bought was at the start of 2014, a WRX STI, and that loan was just under or around $350 a month, and I thought that was crazy. I had the car 11 years. I had to scrap it last year because she was tired and broken. I've been driving a 2006 Civic since then, but now that is retired.</p>
+<p data-read>So here I am at dealers talking about car loans, and almost every place pretty much laughed in my face and said what I was looking for at the price I wanted was not going to happen, it's just not the same anymore. According to Experian, the average car loan payment is around $700 a month, new and used together, and the average new car loan interest rate is 6.35%, while used is 11.19%. When I found a car I liked, a 2023 Honda Accord for 72 months with all the money I've saved over the last two years put down, the estimated payment was still 510 damn dollars. A 2026 Elantra hybrid at about the same price was 480 dollars a month. So if you want a lower payment, get the newer car but get shafted when you register it the first couple years. All I want is a car that gets good gas mileage and is easy to work on.</p>
+
+<h2 data-read data-chapter="Gas & groceries">Gas, groceries, and math that doesn't add up.</h2>
+<p data-read>Over the past year or so, I went from paying in the low to mid $30s a week for a fill-up to last week paying $54.67. That's about $76 more a month, or $912 more a year. What happens to people on fixed incomes as prices keep rising while their incomes don't keep pace? It might not sound like much when we are only talking about gas, but now we add in food. Food gets delivered by trucks. Trucks run on fuel.</p>
+<p data-read>Last week the grocery bill made me look up what the average grocery costs are for a family of three. According to the USDA, what we spend lands somewhere between their low-cost and moderate-cost food plans — the low-cost plan was around $208 a week, moderate around $261, and the higher-cost plan over $320. So if we average low-to-moderate for JUST eating and then add gas for JUST my car, we are already just over $1,200 a month. And that's before mortgage or rent, school loans, home heating, health insurance for three, car insurance, braces coming up, work on the home, somehow trying to save — nope — and the list goes on. How we are all supposed to keep up, I honestly do not know.</p>
+
+<h2 data-read data-chapter="Energy & taxes">Now, CMP. Energy. And taxes.</h2>
+<p data-read>Almost HALF of our CMP bill can be tied to delivery and other charges rather than the electricity itself. Use around $100 worth of electricity and suddenly the bill is close to $190 or $200. And I feel like this keeps rising every year. Then there are my taxes. I see them go up every year, yet I don't see the schools getting better, the roads getting better, or some huge improvement that makes me say, "Okay, I see where it is going." More money goes out, but from where I am standing, it doesn't always feel like something positive is coming back.</p>
+<p class="pull" data-read>Most of the average humans I talk to seem to feel like they are getting squeezed, and we are running out of liquid to wring out of us.</p>
+<p data-read>Paycheck to paycheck seems to be a common thread. I am trying to use some of the bills I actually have to lay out what I am feeling so maybe others can feel comfortable talking about it too.</p>
+
+<h2 data-read data-chapter="The stigma of struggling">The stigma of admitting you're struggling.</h2>
+<p data-read>A friend asked me: if so many people feel this way, why aren't we talking about it more? His thought was that there is almost a stigma attached to admitting you're struggling. We don't want to complain. We don't want our friends thinking we're broke. We don't want people judging the choices we've made. And maybe some are afraid to say what they think because they know someone online is going to jump down their throat. We have somehow gotten really good at yelling our opinions at each other while getting worse at actually telling each other what life feels like.</p>
+<p data-read>My mantra for myself is, "I am no one, and I never will be." I say that to make sure my head doesn't get too big. I'm not an economist. I'm just someone trying to understand what I am seeing around me. So do some of your own research too, because this kind of stuff isn't really in my lane, but I feel like it should be talked about.</p>
+<p class="pull" data-read>Don't surround yourself with people who think they have all the answers. Surround yourself with people who know how to ask the right questions.</p>
+<p data-read>At the end of the day, we are all just these weird little physical shells walking around having a human experience. We come from different places and see the world through completely different eyes. But we all feel fear, love, stress, happiness, loss, and insecurity. None of us really know what the hell we are doing all the time. There's an old phrase I like about political parties: "two wings of the same bird of prey." Maybe the better question isn't which wing we belong to, but whether the bird is flying in a direction that is actually helping the people underneath it. I just hope you can put the side you are on down for a minute and really think about the questions I am asking.</p>
+
+<h2 data-read data-chapter="TikTok brains">A friend called it "TikTok brains."</h2>
+<p data-read>A friend said a term that has stuck with me: we have developed "TikTok brains." We watch our feeds, these quick 45-second to minute-and-a-half videos, one after another. One is sad, one is happy, one is funny — constantly searching for that next little dopamine fix, almost like spinning the wheel on a slot machine. So this is not going to be that. This is going to take some time. I may even read this so someone can just listen to it when they drive. So here are the videos.</p>
+
+<div class="divider" aria-hidden="true"><span></span><span></span><span></span></div>
+<h2 data-read data-chapter="The videos">The videos, and what I think about them.</h2>
+
+<a class="vid" href="https://m.youtube.com/watch?v=QPKKQnijnsM" target="_blank" rel="noopener"><div class="thumb"><img loading="lazy" src="https://img.youtube.com/vi/QPKKQnijnsM/hqdefault.jpg" alt=""><span class="ytplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div><div class="v-body"><div class="v-eyebrow">Video 1 · The classic</div><div class="v-title" data-read>Wealth Inequality in America (old, but still very important)</div><p class="v-note" data-read>It puts a picture to something a lot of people feel but cannot always explain. Americans know inequality exists, but most of us do not realize how extreme it really is. To me this is not about being mad that some people are successful. It is about asking whether regular people still have a real chance when wealth keeps moving upward and bills keep rising.</p><span class="v-link">Watch on YouTube <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg></span></div></a>
+
+<a class="vid" href="https://www.youtube.com/watch?v=2GxlL5-0m_g&t=17s" target="_blank" rel="noopener"><div class="thumb"><img loading="lazy" src="https://img.youtube.com/vi/2GxlL5-0m_g/hqdefault.jpg" alt=""><span class="ytplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div><div class="v-body"><div class="v-eyebrow">Video 2 · The update</div><div class="v-title" data-read>Wealth Inequality in America — 2026 Update</div><p class="v-note" data-read>This bothered me even more, because the first video is over a decade old. The top 1% now has almost a third of all the wealth, about the same as the entire bottom 90%. And even people at the lower end of the 1% are closer to the poorest Americans than to the very top. If we were already talking about this thirteen years ago, what the hell happened during those thirteen years?</p><span class="v-link">Watch on YouTube <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg></span></div></a>
+
+<a class="vid" href="https://youtu.be/aLKacgW6YOI" target="_blank" rel="noopener"><div class="thumb"><img loading="lazy" src="https://img.youtube.com/vi/aLKacgW6YOI/hqdefault.jpg" alt=""><span class="ytplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div><div class="v-body"><div class="v-eyebrow">Video 3 · Income vs. wealth</div><div class="v-title" data-read>Why the Rich Don't Pay Taxes — Institute for New Economic Thinking</div><p class="v-note" data-read>This made me realize I never really thought enough about the difference between income and wealth. For most of us, you work, you get paid, taxes come out. But someone with millions tied up in stocks, businesses, and property experiences money completely differently. It makes me wonder whether people who earn income and people whose wealth grows through what they own are playing by two different sets of rules.</p><span class="v-link">Watch on YouTube <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg></span></div></a>
+
+<a class="vid" href="https://m.youtube.com/watch?v=T0oqR_IimvA" target="_blank" rel="noopener"><div class="thumb"><img loading="lazy" src="https://img.youtube.com/vi/T0oqR_IimvA/hqdefault.jpg" alt=""><span class="ytplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div><div class="v-body"><div class="v-eyebrow">Video 4 · The big numbers</div><div class="v-title" data-read>The American War Machine, Explained</div><p class="v-note" data-read>This is where the numbers become stupidly huge — hundreds of billions before you even get to individual jets, missiles, and ships. I am NOT saying defense doesn't matter. What it made me think about is what we choose to call security. Is security only about protecting the country from something outside it, or is part of security making sure the country itself is strong underneath all of that?</p><span class="v-link">Watch on YouTube <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg></span></div></a>
+
+<a class="vid" href="https://www.youtube.com/watch?v=-2rpOTv--2w" target="_blank" rel="noopener"><div class="thumb"><img loading="lazy" src="https://img.youtube.com/vi/-2rpOTv--2w/hqdefault.jpg" alt=""><span class="ytplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div><div class="v-body"><div class="v-eyebrow">Video 5 · Complexity</div><div class="v-title" data-read>The Same Warning Appears Before Empires Collapse</div><p class="v-note" data-read>Not because I think "Rome collapsed, so America is next." What got me is the idea that societies keep solving problems by adding more to the system — another law, department, program, tax, layer. Eventually you hit diminishing returns, "a state paying more and more just to stand still." How complicated can a system get before simply maintaining it eats up everything you'd need when something actually goes wrong?</p><span class="v-link">Watch on YouTube <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg></span></div></a>
+
+<a class="vid" href="https://www.youtube.com/watch?v=EvgatCFzQWg" target="_blank" rel="noopener"><div class="thumb"><img loading="lazy" src="https://img.youtube.com/vi/EvgatCFzQWg/hqdefault.jpg" alt=""><span class="ytplay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div><div class="v-body"><div class="v-eyebrow">Video 6 · The big picture</div><div class="v-title" data-read>Are We Witnessing the Total Collapse of America?</div><p class="v-note" data-read>It covers a lot, and I'm not saying every claim is right — I don't think "collapse" is the word. But the feeling fits: everything costs more while we get less for it. Fuel goes up, food gets more expensive to move, homes are harder to afford, borrowing costs more, and the little increases stack. Maybe the bigger question isn't who we blame, but what is actually happening underneath all of it.</p><span class="v-link">Watch on YouTube <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg></span></div></a>
+
+<p data-read>If you made it this far, seriously, thank you. More than anything, I want to know what you think — share this. Tell me where you agree, where you think I am wrong, and what you are seeing in your own life. I don't think any of us are going to figure this stuff out by yelling louder from our own side, but maybe we can understand a little more if we are willing to talk honestly, ask better questions, and actually listen to each other.</p>
+<p data-read>Something my minister once said was that the greatest gift of all is the gift of life — so reach out and share that life. Here, share a little of mine, and hopefully make it a little easier for someone else to share theirs too.</p>
+`;
+
+const SEED = [{
+  id: 'andrew-quiet-conversation',
+  title: 'The Same Quiet Conversation',
+  dek: "Everything costs more, our money goes less far, and we're all trying to figure out what the hell is happening. So let's actually talk about it.",
+  author: 'Andrew Word',
+  initials: 'AW',
+  date: '2026-09-22',
+  tags: ['Cost of Living', 'Wealth Inequality', 'Economy', 'Politics', 'Personal Essay'],
+  html: ANDREW_HTML,
+}];
+
+/* ---------- backend config ----------------------------------------------
+   Paste your Supabase project URL + anon (public) key below. Both are safe
+   to ship in a static file — the anon key is public by design, and Row Level
+   Security on the `posts` table controls what it can actually do.
+   Leave the placeholders and Aloud runs on localStorage instead.
+   Table + policies: see supabase-schema.sql / SETUP.md.
+------------------------------------------------------------------------- */
+const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
+
+const configured = /^https:\/\/.+\.supabase\.co\/?$/.test(SUPABASE_URL)
+  && !/YOUR-PROJECT/.test(SUPABASE_URL)
+  && SUPABASE_ANON_KEY.length > 20 && !/YOUR-ANON/.test(SUPABASE_ANON_KEY);
+let sb = null;
+try { if (configured && window.supabase) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
+catch(e){ console.warn('Supabase init failed — falling back to local.', e); }
+const CLOUD = !!sb;
+
+/* ---------- narration (lock-screen audio) config ------------------------
+   Real lock-screen / background playback needs an actual audio stream, so a
+   post's narration is synthesized to an MP3 and stored on the post (audio_url).
+   Point TTS_ENDPOINT at a synthesis endpoint that accepts POST {text, voice}
+   and returns audio/mpeg. Recommended: a Supabase Edge Function that proxies
+   ElevenLabs/OpenAI so the API key stays server-side (see SETUP.md).
+   Leave it '' and Aloud uses on-device TTS only (which the OS pauses on lock).
+------------------------------------------------------------------------- */
+const TTS_ENDPOINT = '';               // e.g. `${SUPABASE_URL}/functions/v1/narrate`
+const TTS_VOICE = 'aria';              // voice id your endpoint understands
+const NARRATION_BUCKET = 'narration';  // Supabase Storage bucket for the MP3s
+const canGenerate = !!TTS_ENDPOINT;
+
+/* ---------- store: Supabase-backed, with a localStorage fallback ---------- */
+const KEY = 'aloud.posts.v1';
+const COLS = ['id','title','dek','author','initials','date','tags','html','audio_url'];
+const postToRow = p => COLS.reduce((r,k)=>(r[k]=p[k],r),{});
+const rowToPost = r => ({...r, tags: Array.isArray(r.tags) ? r.tags : (r.tags ? [r.tags] : [])});
+
+function localAll(){ try{ const raw=localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){} localStorage.setItem(KEY,JSON.stringify(SEED)); return SEED.slice(); }
+function localAdd(post){ const posts=localAll(); posts.unshift(post); localStorage.setItem(KEY,JSON.stringify(posts)); }
+
+const store = {
+  _cache:null,
+  async all(){
+    if (CLOUD){
+      try{
+        const { data, error } = await sb.from('posts').select('*').order('created_at',{ascending:false});
+        if (error) throw error;
+        const posts = data.map(rowToPost);
+        // make sure the flagship seed post exists exactly once
+        for (const s of SEED){
+          if (!posts.some(p => p.id === s.id)){
+            try{ await sb.from('posts').upsert(postToRow(s)); posts.push(s); }catch(e){}
+          }
+        }
+        this._cache = posts;
+        return posts;
+      }catch(e){ console.warn('Cloud read failed — showing local copy.', e); toast('Offline — showing local posts.'); }
+    }
+    return localAll();
+  },
+  async get(id){
+    if (this._cache){ const hit = this._cache.find(p => p.id === id); if (hit) return hit; }
+    if (CLOUD){
+      try{ const { data, error } = await sb.from('posts').select('*').eq('id',id).maybeSingle(); if (error) throw error; if (data) return rowToPost(data); }
+      catch(e){ console.warn('Cloud fetch failed.', e); }
+    }
+    return localAll().find(p => p.id === id);
+  },
+  async add(post){
+    if (CLOUD){
+      try{ const { error } = await sb.from('posts').insert(postToRow(post)); if (error) throw error; this._cache = null; return true; }
+      catch(e){ console.warn('Cloud publish failed — saving locally.', e); toast('Saved on this device (cloud unavailable).'); }
+    }
+    localAdd(post); return true;
+  },
+};
+
+/* ---------- helpers ---------- */
+const app = document.getElementById('app');
+const esc = s => (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60) || 'post-'+Date.now();
+const initialsOf = n => (n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+const wordsOf = html => { const d=document.createElement('div'); d.innerHTML=html; return (d.textContent||'').trim().split(/\s+/).filter(Boolean).length; };
+const readMin = w => Math.max(1, Math.round(w/238));
+const listenMin = w => Math.max(1, Math.round(w/150));
+function go(hash){ if (location.hash === hash) route(); else location.hash = hash; }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2600); }
+function dateLabel(d){ try { return new Date(d+'T00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); } catch(e){ return d; } }
+
+/* =========================================================================
+   ROUTER
+   ========================================================================= */
+let pendingAutoplay = null;
+function loadingHTML(msg){ return `<section class="wrap"><p class="empty">${msg||'Loading…'}</p></section>`; }
+async function route(){
+  player.stop();
+  const h = location.hash || '#/';
+  const m = h.match(/^#\/post\/(.+)$/);
+  if (h === '#/new') return renderComposer();
+  if (m) return renderReader(decodeURIComponent(m[1]));
+  return renderFeed();
+}
+window.addEventListener('hashchange', route);
+
+/* =========================================================================
+   FEED
+   ========================================================================= */
+let activeFilter = 'All';
+async function renderFeed(){
+  app.innerHTML = loadingHTML('Loading posts…');
+  const posts = await store.all();
+  const tags = ['All', ...new Set(posts.flatMap(p => p.tags))];
+  const shown = activeFilter === 'All' ? posts : posts.filter(p => p.tags.includes(activeFilter));
+
+  app.innerHTML = `
+  <section class="wrap">
+    <div class="hero">
+      <div class="eyebrow"><span class="dot"></span> Made for people on the move</div>
+      <h1>Post a thought. Let anyone listen.</h1>
+      <p>Write what's on your mind. Readers press play and their phone reads it aloud — hands-free, while they drive, walk, or train.</p>
+      <button class="btn accent" onclick="go('#/new')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Write a post
+      </button>
+    </div>
+    <div class="filters">
+      ${tags.map(t=>`<button class="chip ${t===activeFilter?'on':''}" onclick="setFilter('${esc(t).replace(/'/g,"\\'")}')">${esc(t)}</button>`).join('')}
+    </div>
+    <div class="feed">
+      ${shown.length ? shown.map(cardHTML).join('') : `<div class="empty">No posts with that tag yet.</div>`}
+    </div>
+  </section>`;
+  window.scrollTo(0,0);
+}
+function setFilter(t){ activeFilter = t; renderFeed(); }
+function cardHTML(p){
+  const w = wordsOf(p.html);
+  const tags = p.tags.slice(0,3).map((t,i)=>`<span class="tag ${i===0?'hot':''}">${esc(t)}</span>`).join('');
+  return `
+  <div class="post-card" onclick="go('#/post/${encodeURIComponent(p.id)}')">
+    <button class="pc-play" aria-label="Listen to ${esc(p.title)}" onclick="event.stopPropagation();openAndPlay('${esc(p.id).replace(/'/g,"\\'")}')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+    <div class="pc-body">
+      <div class="pc-tags">${tags}</div>
+      <h2 class="pc-title">${esc(p.title)}</h2>
+      <p class="pc-dek">${esc(p.dek)}</p>
+      <div class="pc-meta">
+        <span class="who"><span class="pc-av">${esc(p.initials||initialsOf(p.author))}</span>${esc(p.author)}</span>
+        <span class="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg>${listenMin(w)} min listen</span>
+        <span class="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11l5 5v11H4z"/></svg>${readMin(w)} min read</span>
+        <span class="m">${dateLabel(p.date)}</span>
+      </div>
+    </div>
+  </div>`;
+}
+function openAndPlay(id){ pendingAutoplay = id; go('#/post/'+encodeURIComponent(id)); }
+
+/* =========================================================================
+   READER
+   ========================================================================= */
+async function renderReader(id){
+  app.innerHTML = loadingHTML('Loading…');
+  const p = await store.get(id);
+  if (!p){ app.innerHTML = `<section class="wrap"><p class="empty">That post doesn't exist. <a href="#/" onclick="go('#/');return false" style="color:var(--accent-dark);font-weight:600">Back to the feed →</a></p></section>`; return; }
+  const w = wordsOf(p.html);
+
+  app.innerHTML = `
+  <section class="wrap">
+    <header class="article-head">
+      <a class="backlink" href="#/" onclick="go('#/');return false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg> All posts</a>
+      <div class="kicker"><span class="dot"></span> Essay · Public post</div>
+      <h1 class="title">${esc(p.title)}</h1>
+      <p class="dek">${esc(p.dek)}</p>
+      <div class="tags-row">${p.tags.map((t,i)=>`<span class="tag ${i===0?'hot':''}">${esc(t)}</span>`).join('')}</div>
+      <div class="byline">
+        <div class="avatar">${esc(p.initials||initialsOf(p.author))}</div>
+        <div class="who"><div class="name">${esc(p.author)}</div><div class="sub">Published ${dateLabel(p.date)}</div></div>
+        <button class="btn accent small" onclick="toast('You\\'ll be notified when ${esc(p.author).replace(/'/g,"\\'")} posts next.')">+ Follow</button>
+      </div>
+      <div class="stats">
+        <span class="s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg><b>${listenMin(w)} min</b> listen</span>
+        <span class="s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11l5 5v11H4z"/><path d="M15 4v5h5"/></svg><b>${readMin(w)} min</b> read</span>
+        <span class="s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg><b>${w.toLocaleString()}</b> words</span>
+      </div>
+    </header>
+
+    <div class="listen">
+      <div class="listen-inner">
+        <div class="listen-top">
+          <button class="play" id="playBtn" aria-label="Play or pause"><svg class="ico-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><svg class="ico-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg></button>
+          <div class="listen-copy">
+            <div class="listen-label"><span class="live-dot"></span> <span id="modeLabel">Read this to me</span></div>
+            <div class="listen-title">${esc(p.title)}</div>
+            <div class="listen-sub" id="listenSub">Your phone reads it aloud — pick a voice below.</div>
+          </div>
+          <div class="mini">
+            <button class="iconbtn" id="back15" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4 5 9l6 5"/><path d="M5 9h9a6 6 0 1 1 0 12H9"/></svg><span class="skip-lbl">15</span></button>
+            <button class="iconbtn" id="fwd30" aria-label="Forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4l6 5-6 5"/><path d="M19 9h-9a6 6 0 1 0 0 12h5"/></svg><span class="skip-lbl">30</span></button>
+            <button class="iconbtn speed" id="speedBtn" aria-label="Speed">1×</button>
+          </div>
+        </div>
+        <div class="progress-row"><span class="time" id="tCur">0:00</span><div class="bar" id="bar"><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div><span class="time right" id="tDur">--:--</span></div>
+        <div class="listen-foot">
+          <div class="voice-pick" id="voicePick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 19v3"/></svg><select class="voice" id="voiceSelect" aria-label="Choose voice"><option>Loading voices…</option></select></div>
+          <button class="iconbtn speed lock" id="genBtn" hidden aria-label="Generate lock-screen audio" title="Make this lock-screen ready">🔒 Lock-screen</button>
+          <div class="badge-quality"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 15 9l7 .5-5.5 4.5L18 21l-6-3.8L6 21l1.5-7L2 9.5 9 9z"/></svg><span id="qualityText">Enhanced voice</span></div>
+        </div>
+      </div>
+    </div>
+
+    <details class="chapters" id="chapters">
+      <summary><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Jump to a section <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:auto"><path d="M6 9l6 6 6-6"/></svg></summary>
+      <div class="ch-list" id="chList"></div>
+    </details>
+
+    <article id="article">${p.html}</article>
+
+    <div class="endcap">
+      <h3>Have your own version of this story?</h3>
+      <p>Aloud is for people who think out loud. Post yours, and let others listen while they move.</p>
+      <div class="row">
+        <button class="btn accent" onclick="go('#/new')">Write a post</button>
+        <button class="btn" style="background:#fff" onclick="sharePost('${esc(p.title).replace(/'/g,"\\'")}')">Share</button>
+      </div>
+    </div>
+  </section>`;
+
+  window.scrollTo(0,0);
+  player.mount(p);
+  if (pendingAutoplay === id){ pendingAutoplay = null; setTimeout(()=>player.play(), 350); }
+}
+async function sharePost(title){
+  const data = {title:title+' — Aloud', text:'Listen to this on Aloud.', url:location.href};
+  if (navigator.share){ try { await navigator.share(data); } catch(e){} }
+  else { try { await navigator.clipboard.writeText(location.href); toast('Link copied.'); } catch(e){ toast(location.href); } }
+}
+
+/* =========================================================================
+   COMPOSER  (the CMS)
+   ========================================================================= */
+function renderComposer(){
+  app.innerHTML = `
+  <section class="wrap composer">
+    <a class="backlink" href="#/" onclick="go('#/');return false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg> Feed</a>
+    <h2 class="ttl">Write a post</h2>
+    <p class="lede">Say what's on your mind. When you publish, it lands in the feed and anyone can press play to have it read aloud.</p>
+
+    <div class="banner-note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <span>${CLOUD
+        ? 'Connected to <b>Supabase</b> — when you publish, this post goes live for everyone reading Aloud.'
+        : 'Not connected yet: posts save to <b>this device</b> only. Add your Supabase URL + anon key at the top of the file (see <code>SETUP.md</code>) to publish for everyone.'}</span>
+    </div>
+
+    <div class="field"><label>Title</label><input id="f-title" class="title-in" placeholder="Give it a title" maxlength="120"></div>
+    <div class="field"><label>Summary <span class="hint">one line that shows on the card</span></label><input id="f-dek" placeholder="What's this about, in a sentence?" maxlength="220"></div>
+    <div class="field">
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:160px"><label>Your name</label><input id="f-author" placeholder="e.g. Andrew Word" maxlength="60"></div>
+        <div style="flex:1;min-width:160px"><label>Tags <span class="hint">comma-separated</span></label><input id="f-tags" placeholder="Economy, Personal Essay" maxlength="140"></div>
+      </div>
+    </div>
+    <div class="field"><label>Your post</label>
+      <div class="syntax">Formatting: blank line = new paragraph &nbsp;·&nbsp; start a line with <code>## </code> for a section heading &nbsp;·&nbsp; start with <code>&gt; </code> for a pull quote. That's it.</div>
+      <textarea id="f-body" placeholder="Start writing…"></textarea>
+    </div>
+    <div class="composer-actions">
+      <button class="btn accent" onclick="publish()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>
+        Publish
+      </button>
+      <button class="btn" onclick="go('#/')">Cancel</button>
+      <span class="prev-note" id="wc">0 words · ~0 min listen</span>
+    </div>
+  </section>`;
+  window.scrollTo(0,0);
+  const body = document.getElementById('f-body');
+  body.addEventListener('input', () => {
+    const w = body.value.trim().split(/\s+/).filter(Boolean).length;
+    document.getElementById('wc').textContent = `${w} words · ~${listenMin(Math.max(1,w))} min listen`;
+  });
+}
+
+/* turn plain text into reader HTML with data-read blocks */
+function bodyToHTML(text){
+  const paras = text.replace(/\r/g,'').split(/\n{2,}/).map(s=>s.trim()).filter(Boolean);
+  return paras.map(p => {
+    if (p.startsWith('## ')) { const t = esc(p.slice(3).trim()); return `<h2 data-read data-chapter="${t.slice(0,40)}">${t}</h2>`; }
+    if (p.startsWith('> '))  { return `<p class="pull" data-read>${esc(p.slice(2).trim())}</p>`; }
+    return `<p data-read>${esc(p.replace(/\n/g,' ').trim())}</p>`;
+  }).join('\n');
+}
+async function publish(){
+  const title = document.getElementById('f-title').value.trim();
+  const dek = document.getElementById('f-dek').value.trim();
+  const author = document.getElementById('f-author').value.trim() || 'Anonymous';
+  const tags = document.getElementById('f-tags').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const body = document.getElementById('f-body').value.trim();
+  if (!title){ toast('Add a title first.'); return; }
+  if (body.split(/\s+/).filter(Boolean).length < 20){ toast('Write a little more before publishing.'); return; }
+  const post = {
+    id: slug(title) + '-' + Math.random().toString(36).slice(2,6),
+    title, dek: dek || body.slice(0,140), author, initials: initialsOf(author),
+    date: new Date().toISOString().slice(0,10),
+    tags: tags.length ? tags : ['Thoughts'],
+    html: bodyToHTML(body),
+  };
+  const btn = document.querySelector('.composer-actions .btn.accent');
+  if (btn){ btn.disabled = true; btn.style.opacity = .6; btn.textContent = 'Publishing…'; }
+  if (canGenerate){
+    if (btn) btn.textContent = 'Generating audio…';
+    try{ post.audio_url = await synthNarration(post, body, true); }
+    catch(e){ console.warn('narration at publish failed — post goes out without lock-screen audio.', e); }
+  }
+  await store.add(post);
+  toast(CLOUD ? 'Published! 🎉' : 'Published (saved on this device).');
+  go('#/post/'+encodeURIComponent(post.id));
+}
+
+/* =========================================================================
+   PLAYER — two engines behind one set of controls:
+     • audio : a real MP3 (post.audio_url) through a shared <audio> element.
+               Plays in the background, survives a locked screen, and drives the
+               OS lock-screen controls + position via MediaSession.
+     • tts   : on-device speech synthesis fallback (paused by the OS on lock).
+   A post gets audio when narration is generated (publish-time or the 🔒 button)
+   via TTS_ENDPOINT. Everything below routes through player.mode.
+   ========================================================================= */
+const SPEEDS = [1, 1.25, 1.5, 1.75, 2, 0.75];
+
+/* one shared, always-present audio element (created once) */
+const audioEl = document.createElement('audio');
+audioEl.preload = 'metadata';
+audioEl.setAttribute('playsinline','');
+document.body.appendChild(audioEl);
+
+const player = {
+  mode:'tts', post:null, cover:null,
+  playing:false, rate:1, idx:0, speedIdx:0,
+  blocks:[], chapters:[], charsBefore:[], totalChars:1, approxTotalSec:0,
+  voice:null, voices:[], els:{}, mounted:false,
+
+  mount(post){
+    this.stopInternal();
+    this.post = post || null;
+    const $ = id => document.getElementById(id);
+    this.els = {play:$('playBtn'),back:$('back15'),fwd:$('fwd30'),speed:$('speedBtn'),bar:$('bar'),fill:$('fill'),knob:$('knob'),tCur:$('tCur'),tDur:$('tDur'),voiceSelect:$('voiceSelect'),voicePick:$('voicePick'),genBtn:$('genBtn'),modeLabel:$('modeLabel'),listenSub:$('listenSub'),qualityText:$('qualityText'),chList:$('chList'),chapters:$('chapters')};
+    if (!this.els.play){ this.mounted=false; return; }
+    this.mounted = true;
+    this.rate = SPEEDS[this.speedIdx];
+    this.idx = 0;
+
+    // readable blocks (shared for tts + chapter menu)
+    this.blocks = [...document.querySelectorAll('#article [data-read]')].map(el=>({el,text:(el.getAttribute('data-read')||el.textContent).trim(),chapter:el.dataset.chapter||null}));
+    const full = this.blocks.map(b=>b.text).join(' ');
+    this.totalChars = Math.max(1, full.length);
+    let acc=0; this.charsBefore = this.blocks.map(b=>{const v=acc;acc+=b.text.length+1;return v;});
+    this.approxTotalSec = this.totalChars/15/this.rate;
+
+    // chapters
+    this.chapters = this.blocks.filter(b=>b.chapter);
+    this.els.chList.innerHTML='';
+    this.chapters.forEach((c,i)=>{
+      const b=document.createElement('button'); b.className='ch';
+      b.innerHTML=`<span class="n">${String(i+1).padStart(2,'0')}</span> <span>${esc(c.chapter)}</span>`;
+      b.onclick=()=>{ c.el.scrollIntoView({behavior:'smooth',block:'start'}); this.els.chapters.open=false; if(this.mode==='tts'&&this.playing) this.speakFrom(this.blocks.indexOf(c)); };
+      this.els.chList.appendChild(b);
+    });
+
+    // lock-screen cover art + media metadata
+    this.cover = post ? makeCover(post) : null;
+    setupMediaSession();
+    if ('mediaSession' in navigator && post){
+      try{ navigator.mediaSession.metadata = new MediaMetadata({title:post.title, artist:post.author||'Aloud', album:'Aloud', artwork:this.cover?[{src:this.cover,sizes:'512x512',type:'image/png'}]:[]}); }catch(e){}
+    }
+
+    // wire transport
+    this.els.play.onclick=()=>this.toggle();
+    this.els.back.onclick=()=>this.seekRel(-15);
+    this.els.fwd.onclick=()=>this.seekRel(30);
+    this.els.speed.onclick=()=>{ this.speedIdx=(this.speedIdx+1)%SPEEDS.length; this.setRate(SPEEDS[this.speedIdx]); this.els.speed.textContent=SPEEDS[this.speedIdx]+'×'; };
+    this.els.bar.onclick=e=>{ const r=this.els.bar.getBoundingClientRect(); this.seekFraction((e.clientX-r.left)/r.width); };
+    if (this.els.genBtn) this.els.genBtn.onclick=()=>this.generate();
+
+    // choose engine
+    if (post && post.audio_url){ this.enableAudio(post.audio_url); }
+    else { this.enableTTS(); }
+  },
+
+  /* ---------------- AUDIO ENGINE (lock-screen) ---------------- */
+  enableAudio(url){
+    this.mode='audio';
+    audioEl.src=url; audioEl.playbackRate=this.rate; audioEl.currentTime=0;
+    this.els.modeLabel.textContent='Narrated audio';
+    this.els.listenSub.textContent='Real audio — keeps playing with your screen locked.';
+    this.els.qualityText.textContent='Lock-screen ready 🔒';
+    if(this.els.voicePick) this.els.voicePick.style.display='none';
+    if(this.els.genBtn) this.els.genBtn.hidden=true;
+    this.setProgress(0,0,audioEl.duration||0);
+  },
+
+  /* ---------------- TTS ENGINE (on-device) ---------------- */
+  enableTTS(){
+    this.mode='tts';
+    if(this.els.voicePick) this.els.voicePick.style.display='';
+    if (!('speechSynthesis' in window)){
+      this.els.listenSub.textContent='Your browser can’t read aloud — try Chrome, Edge, or Safari.';
+      this.els.play.disabled=true; return;
+    }
+    this.els.modeLabel.textContent='Read this to me';
+    this.els.listenSub.textContent = canGenerate
+      ? 'On-device voice. Tap 🔒 to make it play with the screen locked.'
+      : 'On-device voice — best kept with the screen on.';
+    if(this.els.genBtn) this.els.genBtn.hidden = !canGenerate;
+    this.loadVoices();
+    speechSynthesis.onvoiceschanged=()=>this.loadVoices();
+    this.setProgress(0,0,this.approxTotalSec);
+  },
+
+  loadVoices(){
+    const all = speechSynthesis.getVoices().filter(v=>v.lang && v.lang.startsWith('en'));
+    if (!all.length) return;
+    const score = v=>{ const n=(v.name+' '+v.voiceURI).toLowerCase(); let s=0;
+      if(/natural|neural|premium|enhanced/.test(n))s+=100; if(/google/.test(n))s+=40;
+      if(/samantha|ava|allison|siri|zoe|serena|jenny|guy|aria|libby|nova/.test(n))s+=30;
+      if(v.lang==='en-US'||v.lang==='en-GB')s+=10; if(v.localService)s+=5; return s; };
+    all.sort((a,b)=>score(b)-score(a));
+    this.voices=all;
+    this.els.voiceSelect.innerHTML='';
+    all.forEach((v,i)=>{ const o=document.createElement('option'); o.value=i; const premium=/natural|neural|premium|enhanced/i.test(v.name+v.voiceURI); o.textContent=v.name.replace(/\(.*?\)/,'').trim()+(premium?' ✦':''); this.els.voiceSelect.appendChild(o); });
+    this.els.voiceSelect.value=0; this.voice=all[0];
+    this.els.voiceSelect.onchange=()=>{ this.voice=all[+this.els.voiceSelect.value]; if(this.playing) this.speakFrom(this.idx); };
+    if(this.mode==='tts'){ const best=/natural|neural|premium|enhanced/i.test(this.voice.name+this.voice.voiceURI); this.els.qualityText.textContent=best?'Premium voice ✦':'Enhanced voice'; }
+  },
+
+  /* ---------------- generate narration on demand ---------------- */
+  async generate(){
+    if (!canGenerate || !this.post) return;
+    const btn=this.els.genBtn; const label=btn.textContent;
+    btn.disabled=true; btn.textContent='Generating…';
+    try{
+      const text = this.blocks.map(b=>b.text).join('\n\n');
+      const url = await synthNarration(this.post, text, true);
+      this.post.audio_url = url;
+      this.enableAudio(url);
+      toast('Lock-screen audio ready 🔒▶');
+      this.play();
+    }catch(e){ console.warn('generate failed',e); toast('Couldn’t generate audio.'); btn.disabled=false; btn.textContent=label; }
+  },
+
+  /* ---------------- shared controls ---------------- */
+  toggle(){ this.playing?this.pause():this.play(); },
+  play(){
+    if (!this.mounted) return;
+    if (this.mode==='audio'){ audioEl.play().catch(()=>{}); this.setPlaying(true); return; }
+    if (!('speechSynthesis' in window)) return;
+    if (speechSynthesis.paused && speechSynthesis.speaking) speechSynthesis.resume();
+    else this.speakFrom(this.idx);
+    this.setPlaying(true);
+  },
+  pause(){
+    if (this.mode==='audio') audioEl.pause();
+    else if (speechSynthesis.speaking) speechSynthesis.pause();
+    this.setPlaying(false);
+  },
+  stop(){ this.stopInternal(); },
+  stopInternal(){
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    try{ audioEl.pause(); }catch(e){}
+    this.playing=false; document.body.classList.remove('playing'); this.clearHL(); this.idx=0;
+    if ('mediaSession' in navigator) try{ navigator.mediaSession.playbackState='none'; }catch(e){}
+  },
+  setPlaying(p){ this.playing=p; document.body.classList.toggle('playing',p); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState=p?'playing':'paused';}catch(e){} },
+
+  setRate(r){
+    this.rate=r;
+    if (this.mode==='audio'){ audioEl.playbackRate=r; }
+    else { this.approxTotalSec=this.totalChars/15/r; if(this.playing) this.speakFrom(this.idx); this.setProgress(this.charsBefore[this.idx]/this.totalChars, null, this.approxTotalSec); }
+  },
+
+  seekRel(sec){
+    if (this.mode==='audio'){ audioEl.currentTime=Math.max(0,Math.min(audioEl.duration||0, audioEl.currentTime+sec)); return; }
+    const dir=sec>0?1:-1; const jump=Math.max(1,Math.round(Math.abs(sec)/8));
+    this.speakFrom(Math.max(0,Math.min(this.blocks.length-1,this.idx+dir*jump)));
+  },
+  seekFraction(f){
+    if (this.mode==='audio'){ if(isFinite(audioEl.duration)) audioEl.currentTime=f*audioEl.duration; return; }
+    const target=f*this.totalChars; let i=this.charsBefore.findIndex((c,idx)=>idx===this.blocks.length-1||this.charsBefore[idx+1]>target); if(i<0)i=0; this.speakFrom(i);
+  },
+
+  speakFrom(i){
+    speechSynthesis.cancel(); this.idx=i;
+    if (i>=this.blocks.length){ this.stopInternal(); this.setProgress(1,this.approxTotalSec,this.approxTotalSec); return; }
+    const b=this.blocks[i]; this.highlight(b.el);
+    this.setProgress(this.charsBefore[i]/this.totalChars,(this.charsBefore[i]/this.totalChars)*this.approxTotalSec,this.approxTotalSec);
+    const u=new SpeechSynthesisUtterance(b.text);
+    if(this.voice)u.voice=this.voice; u.rate=this.rate; u.pitch=1;
+    u.onend=()=>{ if(this.playing && this.mode==='tts') this.speakFrom(i+1); };
+    speechSynthesis.speak(u); this.setPlaying(true);
+  },
+
+  setProgress(frac,cur,dur){ frac=Math.max(0,Math.min(1,frac||0)); this.els.fill.style.width=(frac*100)+'%'; this.els.knob.style.left=(frac*100)+'%'; const pre=this.mode==='tts'?'~':''; if(cur!=null)this.els.tCur.textContent=fmt(cur); if(dur!=null)this.els.tDur.textContent=pre+fmt(dur); },
+  highlight(el){ this.clearHL(); this._hl=el; el.classList.add('read-active'); const r=el.getBoundingClientRect(); if(r.top<160||r.bottom>innerHeight-40) el.scrollIntoView({behavior:'smooth',block:'center'}); },
+  clearHL(){ if(this._hl){ this._hl.classList.remove('read-active'); this._hl=null; } },
+};
+
+/* audio-element events drive progress + lock-screen position (audio mode) */
+audioEl.addEventListener('loadedmetadata',()=>{ if(player.mode==='audio') player.setProgress(0,0,audioEl.duration); });
+audioEl.addEventListener('timeupdate',()=>{ if(player.mode!=='audio')return; const d=audioEl.duration||0; player.setProgress(d?audioEl.currentTime/d:0, audioEl.currentTime, d); updatePositionState(); });
+audioEl.addEventListener('ended',()=>player.stopInternal());
+audioEl.addEventListener('play',()=>{ if(player.mode==='audio') player.setPlaying(true); });
+audioEl.addEventListener('pause',()=>{ if(player.mode==='audio' && !audioEl.ended) player.setPlaying(false); });
+
+function fmt(s){ if(!isFinite(s)||s<0)return '--:--'; s=Math.round(s); const m=Math.floor(s/60),ss=s%60; return m+':'+String(ss).padStart(2,'0'); }
+
+/* synthesize narration via TTS_ENDPOINT; persist to Supabase Storage when possible */
+async function synthNarration(post, text, persist){
+  const res = await fetch(TTS_ENDPOINT, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text, voice:TTS_VOICE})});
+  if (!res.ok) throw new Error('TTS endpoint '+res.status);
+  const blob = await res.blob();
+  let url = URL.createObjectURL(blob);
+  if (persist && CLOUD){
+    try{
+      const path = post.id + '.mp3';
+      const up = await sb.storage.from(NARRATION_BUCKET).upload(path, blob, {upsert:true, contentType:'audio/mpeg'});
+      if (!up.error){
+        const pub = sb.storage.from(NARRATION_BUCKET).getPublicUrl(path);
+        if (pub.data && pub.data.publicUrl){
+          url = pub.data.publicUrl;
+          try{ await sb.from('posts').update({audio_url:url}).eq('id',post.id); }catch(e){ /* needs an update policy; falls back to public URL */ }
+        }
+      }
+    }catch(e){ console.warn('narration persist failed — using session audio.', e); }
+  }
+  return url;
+}
+
+/* generate a 512×512 lock-screen cover from the post */
+function makeCover(post){
+  try{
+    const c=document.createElement('canvas'); c.width=c.height=512; const x=c.getContext('2d');
+    const g=x.createLinearGradient(0,0,512,512); g.addColorStop(0,'#1c1813'); g.addColorStop(1,'#2a231b');
+    x.fillStyle=g; x.fillRect(0,0,512,512);
+    x.fillStyle='#e8543a'; x.beginPath(); x.arc(96,96,34,0,7); x.fill();
+    x.fillStyle='#fff'; x.beginPath(); x.moveTo(86,80); x.lineTo(86,112); x.lineTo(114,96); x.closePath(); x.fill();
+    x.fillStyle='#d9b7ad'; x.font='600 24px Inter, sans-serif'; x.fillText('ALOUD', 148, 104);
+    // wrapped title
+    x.fillStyle='#fbfaf7'; x.font='600 46px Newsreader, Georgia, serif';
+    const words=(post.title||'').split(' '); let line='', y=250; const lines=[];
+    for(const w of words){ const t=line?line+' '+w:w; if(x.measureText(t).width>430 && line){ lines.push(line); line=w; } else line=t; }
+    if(line) lines.push(line);
+    lines.slice(0,4).forEach(l=>{ x.fillText(l,56,y); y+=58; });
+    x.fillStyle='#a89f92'; x.font='500 26px Inter, sans-serif'; x.fillText(post.author||'', 56, Math.min(y+18,470));
+    return c.toDataURL('image/png');
+  }catch(e){ return null; }
+}
+
+function setupMediaSession(){
+  if (!('mediaSession' in navigator)) return;
+  const set=(a,fn)=>{try{navigator.mediaSession.setActionHandler(a,fn);}catch(e){}};
+  set('play',()=>player.play()); set('pause',()=>player.pause());
+  set('seekbackward',e=>player.seekRel(-(e&&e.seekOffset||15)));
+  set('seekforward',e=>player.seekRel(e&&e.seekOffset||30));
+  set('previoustrack',()=>player.seekRel(-15));
+  set('nexttrack',()=>player.seekRel(30));
+  set('stop',()=>player.stop());
+  set('seekto',e=>{ if(player.mode==='audio' && e.seekTime!=null) audioEl.currentTime=e.seekTime; });
+}
+function updatePositionState(){
+  if (player.mode!=='audio' || !('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
+  if (isFinite(audioEl.duration)){ try{ navigator.mediaSession.setPositionState({duration:audioEl.duration, position:audioEl.currentTime, playbackRate:audioEl.playbackRate}); }catch(e){} }
+}
+
+/* keep Chrome TTS alive on longer reads (tts mode only) */
+setInterval(()=>{ if(player.mode==='tts' && player.playing && 'speechSynthesis' in window && speechSynthesis.speaking && !speechSynthesis.paused){ speechSynthesis.pause(); speechSynthesis.resume(); } },12000);
+document.addEventListener('keydown',e=>{ if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; if(!player.mounted)return; if(e.code==='Space'){e.preventDefault();player.toggle();} else if(e.code==='ArrowLeft')player.seekRel(-15); else if(e.code==='ArrowRight')player.seekRel(30); });
+
+/* boot */
+route();
+</script>
+</body>
+</html>
