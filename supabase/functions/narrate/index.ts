@@ -1,5 +1,5 @@
 // =====================================================================
-// Aloud — `narrate` Edge Function
+// Active Listener — `narrate` Edge Function
 // ---------------------------------------------------------------------
 // Turns a post's text into an MP3 so it can play with the screen locked.
 // The browser POSTs { text, voice }; this returns audio/mpeg. Your TTS

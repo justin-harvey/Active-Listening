@@ -1,4 +1,4 @@
-# narrate — Aloud narration endpoint
+# narrate — Active Listener narration endpoint
 
 Synthesizes a post's text into an MP3 for lock-screen / background playback.
 The static app POSTs `{ text, voice }` and gets back `audio/mpeg`. Your TTS
@@ -34,7 +34,7 @@ Put that in `index.html` → `const TTS_ENDPOINT = '...'`.
 ```bash
 curl -X POST https://<project-ref>.supabase.co/functions/v1/narrate \
   -H "Content-Type: application/json" \
-  -d '{"text":"Hello from Aloud.","voice":"aria"}' \
+  -d '{"text":"Hello from Active Listener.","voice":"aria"}' \
   --output test.mp3
 ```
 

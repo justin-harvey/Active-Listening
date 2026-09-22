@@ -1,5 +1,5 @@
 -- =====================================================================
--- Aloud — Supabase schema
+-- Active Listener — Supabase schema
 -- Run this once in your project's SQL editor (Supabase → SQL → New query).
 -- =====================================================================
 

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Aloud — thoughts, read out loud</title>
-<meta name="description" content="A place to post your thoughts and let anyone listen. Press play and your phone reads the post to you while you drive, walk, or train." />
+<title>Active Listener — hear what people are thinking</title>
+<meta name="description" content="Active Listener lets you listen to other people's thoughts while you multitask. Post what's on your mind, and anyone can press play and hear it while they drive, walk, or train." />
 <meta name="theme-color" content="#16130f" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -214,7 +214,7 @@
 <nav class="nav">
   <div class="brand" onclick="go('#/')">
     <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4M7 6v12M11 3v18M15 8v8M19 5v14M23 10v4"/></svg></span>
-    <span>Aloud <small>· thoughts, read out loud</small></span>
+    <span>Active Listener <small>· hear what people think</small></span>
   </div>
   <div class="nav-actions">
     <button class="btn accent" onclick="go('#/new')">
@@ -228,7 +228,7 @@
 
 <footer>
   <div class="wrap">
-    <div class="brand"><span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4M7 6v12M11 3v18M15 8v8M19 5v14M23 10v4"/></svg></span> Aloud</div>
+    <div class="brand"><span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4M7 6v12M11 3v18M15 8v8M19 5v14M23 10v4"/></svg></span> Active Listener</div>
     <div>
       <a href="#/" onclick="go('#/');return false">Feed</a>
       <a href="#/new" onclick="go('#/new');return false">Write</a>
@@ -319,7 +319,7 @@ const SEED = [{
    Paste your Supabase project URL + anon (public) key below. Both are safe
    to ship in a static file — the anon key is public by design, and Row Level
    Security on the `posts` table controls what it can actually do.
-   Leave the placeholders and Aloud runs on localStorage instead.
+   Leave the placeholders and Active Listener runs on localStorage instead.
    Table + policies: see supabase-schema.sql / SETUP.md.
 ------------------------------------------------------------------------- */
 const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
@@ -339,7 +339,7 @@ const CLOUD = !!sb;
    Point TTS_ENDPOINT at a synthesis endpoint that accepts POST {text, voice}
    and returns audio/mpeg. Recommended: a Supabase Edge Function that proxies
    ElevenLabs/OpenAI so the API key stays server-side (see SETUP.md).
-   Leave it '' and Aloud uses on-device TTS only (which the OS pauses on lock).
+   Leave it '' and Active Listener uses on-device TTS only (which the OS pauses on lock).
 ------------------------------------------------------------------------- */
 const TTS_ENDPOINT = '';               // e.g. `${SUPABASE_URL}/functions/v1/narrate`
 const TTS_VOICE = 'aria';              // voice id your endpoint understands
@@ -433,8 +433,8 @@ async function renderFeed(){
   <section class="wrap">
     <div class="hero">
       <div class="eyebrow"><span class="dot"></span> Made for people on the move</div>
-      <h1>Post a thought. Let anyone listen.</h1>
-      <p>Write what's on your mind. Readers press play and their phone reads it aloud — hands-free, while they drive, walk, or train.</p>
+      <h1>Hear what people are thinking.</h1>
+      <p>Active Listener lets you listen to other people's thoughts while you multitask. Post what's on your mind, and anyone can press play and hear it — hands-free, while they drive, walk, or train.</p>
       <button class="btn accent" onclick="go('#/new')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
         Write a post
@@ -535,7 +535,7 @@ async function renderReader(id){
 
     <div class="endcap">
       <h3>Have your own version of this story?</h3>
-      <p>Aloud is for people who think out loud. Post yours, and let others listen while they move.</p>
+      <p>Active Listener is for people who think out loud. Post yours, and let others listen while they move.</p>
       <div class="row">
         <button class="btn accent" onclick="go('#/new')">Write a post</button>
         <button class="btn" style="background:#fff" onclick="sharePost('${esc(p.title).replace(/'/g,"\\'")}')">Share</button>
@@ -548,7 +548,7 @@ async function renderReader(id){
   if (pendingAutoplay === id){ pendingAutoplay = null; setTimeout(()=>player.play(), 350); }
 }
 async function sharePost(title){
-  const data = {title:title+' — Aloud', text:'Listen to this on Aloud.', url:location.href};
+  const data = {title:title+' — Active Listener', text:'Listen to this on Active Listener.', url:location.href};
   if (navigator.share){ try { await navigator.share(data); } catch(e){} }
   else { try { await navigator.clipboard.writeText(location.href); toast('Link copied.'); } catch(e){ toast(location.href); } }
 }
@@ -566,7 +566,7 @@ function renderComposer(){
     <div class="banner-note">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
       <span>${CLOUD
-        ? 'Connected to <b>Supabase</b> — when you publish, this post goes live for everyone reading Aloud.'
+        ? 'Connected to <b>Supabase</b> — when you publish, this post goes live for everyone reading Active Listener.'
         : 'Not connected yet: posts save to <b>this device</b> only. Add your Supabase URL + anon key at the top of the file (see <code>SETUP.md</code>) to publish for everyone.'}</span>
     </div>
 
@@ -681,7 +681,7 @@ const player = {
     this.chapters.forEach((c,i)=>{
       const b=document.createElement('button'); b.className='ch';
       b.innerHTML=`<span class="n">${String(i+1).padStart(2,'0')}</span> <span>${esc(c.chapter)}</span>`;
-      b.onclick=()=>{ c.el.scrollIntoView({behavior:'smooth',block:'start'}); this.els.chapters.open=false; if(this.mode==='tts'&&this.playing) this.speakFrom(this.blocks.indexOf(c)); };
+      b.onclick=()=>{ c.el.scrollIntoView({behavior:'smooth',block:'start'}); this.els.chapters.open=false; if(this.mode==='tts'&&this.playing) this.jumpTo(this.blocks.indexOf(c)); };
       this.els.chList.appendChild(b);
     });
 
@@ -689,7 +689,7 @@ const player = {
     this.cover = post ? makeCover(post) : null;
     setupMediaSession();
     if ('mediaSession' in navigator && post){
-      try{ navigator.mediaSession.metadata = new MediaMetadata({title:post.title, artist:post.author||'Aloud', album:'Aloud', artwork:this.cover?[{src:this.cover,sizes:'512x512',type:'image/png'}]:[]}); }catch(e){}
+      try{ navigator.mediaSession.metadata = new MediaMetadata({title:post.title, artist:post.author||'Active Listener', album:'Active Listener', artwork:this.cover?[{src:this.cover,sizes:'512x512',type:'image/png'}]:[]}); }catch(e){}
     }
 
     // wire transport
@@ -747,7 +747,7 @@ const player = {
     this.els.voiceSelect.innerHTML='';
     all.forEach((v,i)=>{ const o=document.createElement('option'); o.value=i; const premium=/natural|neural|premium|enhanced/i.test(v.name+v.voiceURI); o.textContent=v.name.replace(/\(.*?\)/,'').trim()+(premium?' ✦':''); this.els.voiceSelect.appendChild(o); });
     this.els.voiceSelect.value=0; this.voice=all[0];
-    this.els.voiceSelect.onchange=()=>{ this.voice=all[+this.els.voiceSelect.value]; if(this.playing) this.speakFrom(this.idx); };
+    this.els.voiceSelect.onchange=()=>{ this.voice=all[+this.els.voiceSelect.value]; if(this.playing && this.mode==='tts') this.jumpTo(this.idx); };
     if(this.mode==='tts'){ const best=/natural|neural|premium|enhanced/i.test(this.voice.name+this.voice.voiceURI); this.els.qualityText.textContent=best?'Premium voice ✦':'Enhanced voice'; }
   },
 
@@ -772,18 +772,19 @@ const player = {
     if (!this.mounted) return;
     if (this.mode==='audio'){ audioEl.play().catch(()=>{}); this.setPlaying(true); return; }
     if (!('speechSynthesis' in window)) return;
-    if (speechSynthesis.paused && speechSynthesis.speaking) speechSynthesis.resume();
-    else this.speakFrom(this.idx);
     this.setPlaying(true);
+    if (speechSynthesis.paused && speechSynthesis.speaking){ speechSynthesis.resume(); return; }
+    this.jumpTo(this.idx);
   },
   pause(){
     if (this.mode==='audio') audioEl.pause();
-    else if (speechSynthesis.speaking) speechSynthesis.pause();
+    else { clearTimeout(this._t); try{ speechSynthesis.pause(); }catch(e){} }
     this.setPlaying(false);
   },
   stop(){ this.stopInternal(); },
   stopInternal(){
-    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    clearTimeout(this._t);
+    if ('speechSynthesis' in window) try{ speechSynthesis.cancel(); }catch(e){}
     try{ audioEl.pause(); }catch(e){}
     this.playing=false; document.body.classList.remove('playing'); this.clearHL(); this.idx=0;
     if ('mediaSession' in navigator) try{ navigator.mediaSession.playbackState='none'; }catch(e){}
@@ -793,28 +794,43 @@ const player = {
   setRate(r){
     this.rate=r;
     if (this.mode==='audio'){ audioEl.playbackRate=r; }
-    else { this.approxTotalSec=this.totalChars/15/r; if(this.playing) this.speakFrom(this.idx); this.setProgress(this.charsBefore[this.idx]/this.totalChars, null, this.approxTotalSec); }
+    else { this.approxTotalSec=this.totalChars/15/r; if(this.playing) this.jumpTo(this.idx); else this.setProgress(this.charsBefore[this.idx]/this.totalChars, null, this.approxTotalSec); }
   },
 
   seekRel(sec){
     if (this.mode==='audio'){ audioEl.currentTime=Math.max(0,Math.min(audioEl.duration||0, audioEl.currentTime+sec)); return; }
     const dir=sec>0?1:-1; const jump=Math.max(1,Math.round(Math.abs(sec)/8));
-    this.speakFrom(Math.max(0,Math.min(this.blocks.length-1,this.idx+dir*jump)));
+    this.jumpTo(Math.max(0,Math.min(this.blocks.length-1,this.idx+dir*jump)));
   },
   seekFraction(f){
     if (this.mode==='audio'){ if(isFinite(audioEl.duration)) audioEl.currentTime=f*audioEl.duration; return; }
-    const target=f*this.totalChars; let i=this.charsBefore.findIndex((c,idx)=>idx===this.blocks.length-1||this.charsBefore[idx+1]>target); if(i<0)i=0; this.speakFrom(i);
+    const target=f*this.totalChars; let i=this.charsBefore.findIndex((c,idx)=>idx===this.blocks.length-1||this.charsBefore[idx+1]>target); if(i<0)i=0; this.jumpTo(i);
   },
 
-  speakFrom(i){
-    speechSynthesis.cancel(); this.idx=i;
+  /* (re)start speech at block i — cancel then speak after a beat, because Chrome
+     drops an utterance spoken in the same tick as cancel(). Used for start/seek. */
+  jumpTo(i){
+    if (!('speechSynthesis' in window)) return;
+    clearTimeout(this._t);
+    try{ speechSynthesis.cancel(); }catch(e){}
+    this.playing = true; document.body.classList.add('playing');
+    this._t = setTimeout(()=>this._speak(i), 110);
+  },
+
+  /* speak one block and chain to the next WITHOUT cancelling (cancel-in-chain is
+     what caused the freeze). onerror recovers so a bad utterance can't stall it. */
+  _speak(i){
+    if (!this.playing || this.mode!=='tts') return;
     if (i>=this.blocks.length){ this.stopInternal(); this.setProgress(1,this.approxTotalSec,this.approxTotalSec); return; }
+    this.idx=i;
     const b=this.blocks[i]; this.highlight(b.el);
     this.setProgress(this.charsBefore[i]/this.totalChars,(this.charsBefore[i]/this.totalChars)*this.approxTotalSec,this.approxTotalSec);
     const u=new SpeechSynthesisUtterance(b.text);
-    if(this.voice)u.voice=this.voice; u.rate=this.rate; u.pitch=1;
-    u.onend=()=>{ if(this.playing && this.mode==='tts') this.speakFrom(i+1); };
-    speechSynthesis.speak(u); this.setPlaying(true);
+    if(this.voice) u.voice=this.voice;
+    u.lang=(this.voice&&this.voice.lang)||'en-US'; u.rate=this.rate; u.pitch=1;
+    u.onend=()=>{ if(this.playing && this.mode==='tts' && this.idx===i) this._speak(i+1); };
+    u.onerror=(e)=>{ const err=e&&e.error; if(err==='interrupted'||err==='canceled') return; console.warn('speech error:',err); if(this.playing && this.mode==='tts' && this.idx===i) this._speak(i+1); };
+    try{ speechSynthesis.speak(u); }catch(err){ console.warn(err); }
   },
 
   setProgress(frac,cur,dur){ frac=Math.max(0,Math.min(1,frac||0)); this.els.fill.style.width=(frac*100)+'%'; this.els.knob.style.left=(frac*100)+'%'; const pre=this.mode==='tts'?'~':''; if(cur!=null)this.els.tCur.textContent=fmt(cur); if(dur!=null)this.els.tDur.textContent=pre+fmt(dur); },
@@ -861,7 +877,7 @@ function makeCover(post){
     x.fillStyle=g; x.fillRect(0,0,512,512);
     x.fillStyle='#e8543a'; x.beginPath(); x.arc(96,96,34,0,7); x.fill();
     x.fillStyle='#fff'; x.beginPath(); x.moveTo(86,80); x.lineTo(86,112); x.lineTo(114,96); x.closePath(); x.fill();
-    x.fillStyle='#d9b7ad'; x.font='600 24px Inter, sans-serif'; x.fillText('ALOUD', 148, 104);
+    x.fillStyle='#d9b7ad'; x.font='600 22px Inter, sans-serif'; x.fillText('ACTIVE LISTENER', 148, 104);
     // wrapped title
     x.fillStyle='#fbfaf7'; x.font='600 46px Newsreader, Georgia, serif';
     const words=(post.title||'').split(' '); let line='', y=250; const lines=[];

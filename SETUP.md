@@ -1,6 +1,6 @@
-# Aloud — Supabase setup
+# Active Listener — Supabase setup
 
-Aloud runs as a single static `index.html`. Without keys it stores posts in the
+Active Listener runs as a single static `index.html`. Without keys it stores posts in the
 browser (localStorage). Add a Supabase project and posts become shared across
 everyone's phones. Nothing else in the app changes.
 
@@ -30,7 +30,7 @@ const SUPABASE_URL = 'https://abcxyz.supabase.co';
 const SUPABASE_ANON_KEY = 'paste-the-anon-public-key-here';
 ```
 
-Save and reload. On first load Aloud auto-seeds Andrew's post into the table,
+Save and reload. On first load Active Listener auto-seeds Andrew's post into the table,
 and the composer now publishes for everyone. The composer banner will say
 "Connected to Supabase" when it's live.
 
@@ -69,7 +69,7 @@ supabase functions deploy narrate --no-verify-jwt
 Full details (voices, local serve, curl test) are in
 `supabase/functions/narrate/README.md`.
 
-### 2. Point Aloud at it
+### 2. Point Active Listener at it
 In `index.html`, `narration config` block:
 ```js
 const TTS_ENDPOINT = 'https://abcxyz.supabase.co/functions/v1/narrate';
