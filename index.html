@@ -732,12 +732,31 @@ const player = {
     if(this.els.genBtn) this.els.genBtn.hidden = !canGenerate;
     this.loadVoices();
     speechSynthesis.onvoiceschanged=()=>this.loadVoices();
+    this._pollVoices(0);
     this.setProgress(0,0,this.approxTotalSec);
   },
 
+  /* voiceschanged doesn't fire on every browser — poll a few seconds, and if the
+     device really has no speech voices installed, say so plainly. */
+  _pollVoices(n){
+    if (this.mode!=='tts' || (this.voices && this.voices.length)) return;
+    this.loadVoices();
+    if (this.voices && this.voices.length) return;
+    if (n>=20){ this._noVoices(); return; }
+    setTimeout(()=>this._pollVoices(n+1), 250);
+  },
+  _noVoices(){
+    this.els.voiceSelect.innerHTML='<option>No voices installed</option>';
+    this.els.qualityText.textContent='No voice on this device';
+    this.els.listenSub.innerHTML='This browser has no speech voices installed. On Linux: <code>sudo apt install speech-dispatcher espeak-ng</code> then restart the browser — or open this on a phone/Mac/Windows, which ship voices. (Server-side narration removes this need — see SETUP.md.)';
+    this.els.play.disabled=true;
+  },
+
   loadVoices(){
-    const all = speechSynthesis.getVoices().filter(v=>v.lang && v.lang.startsWith('en'));
+    let all = speechSynthesis.getVoices().filter(v=>v.lang && v.lang.startsWith('en'));
+    if (!all.length){ const any=speechSynthesis.getVoices(); if(any.length) all=any.slice(); } // no English? use whatever exists
     if (!all.length) return;
+    this.els.play.disabled=false;
     const remote = v=>/google|online|cloud|natural|neural|wavenet/i.test(v.name+' '+v.voiceURI) && !v.localService;
     // Prefer ON-DEVICE voices: they always produce audio, where cloud voices can
     // silently fail (which was making the reader skip through with no sound).
