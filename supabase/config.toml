@@ -1,0 +1,9 @@
+# Supabase project config (minimal — enough to deploy the narrate function).
+# `project_id` is just a local label; link the real project with:
+#   supabase link --project-ref <your-project-ref>
+project_id = "aloud"
+
+[functions.narrate]
+# No user JWT required — the static site calls this without auth.
+# The provider API key lives in function secrets, not in the request.
+verify_jwt = false

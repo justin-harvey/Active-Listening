@@ -49,36 +49,25 @@ is synthesized to an MP3 once, stored in Supabase Storage, and played through an
 narration show **"Lock-screen ready 🔒"**; posts without it fall back to on-device
 TTS. New posts get narration generated automatically at publish time.
 
-### 1. Deploy a narration endpoint (keeps your TTS key server-side)
-Create a Supabase Edge Function that proxies a TTS provider. Example using
-ElevenLabs (`supabase/functions/narrate/index.ts`):
+### 1. Deploy the narration endpoint (keeps your TTS key server-side)
+The function is already in the repo at **`supabase/functions/narrate/`** — it
+proxies ElevenLabs or OpenAI, handles CORS, and chunks long posts. Deploy it:
 
-```ts
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-const KEY = Deno.env.get("ELEVENLABS_API_KEY")!;
-const VOICE = { aria: "9BWtsMINqrJLrRacOk9x" }; // map your names -> voice ids
+```bash
+supabase link --project-ref <your-project-ref>
 
-Deno.serve(async (req) => {
-  const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" };
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  const { text, voice } = await req.json();
-  const id = VOICE[voice] ?? VOICE.aria;
-  const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${id}`, {
-    method: "POST",
-    headers: { "xi-api-key": KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ text, model_id: "eleven_turbo_v2_5" }),
-  });
-  return new Response(r.body, { headers: { ...cors, "Content-Type": "audio/mpeg" } });
-});
-```
-
-Deploy + set the secret:
-```
-supabase functions deploy narrate --no-verify-jwt
+# choose a provider and set its key:
+supabase secrets set TTS_PROVIDER=elevenlabs
 supabase secrets set ELEVENLABS_API_KEY=sk_...
+#   — or —
+supabase secrets set TTS_PROVIDER=openai
+supabase secrets set OPENAI_API_KEY=sk-...
+
+supabase functions deploy narrate --no-verify-jwt
 ```
-(Any provider works — OpenAI `tts-1`, Google, Azure — as long as the function
-returns `audio/mpeg`.)
+
+Full details (voices, local serve, curl test) are in
+`supabase/functions/narrate/README.md`.
 
 ### 2. Point Aloud at it
 In `index.html`, `narration config` block:
