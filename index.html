@@ -330,8 +330,8 @@ const SEED = [{
    Leave the placeholders and Active Listener runs on localStorage instead.
    Table + policies: see supabase-schema.sql / SETUP.md.
 ------------------------------------------------------------------------- */
-const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
+const SUPABASE_URL = 'https://nfqcbrddwmnlzgpoenlb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5mcWNicmRkd21ubHpncG9lbmxiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxMTE5ODQsImV4cCI6MjEwNTY4Nzk4NH0.MEZQszafXfa4PfaMtpem4eA3EVi_XE7vfN0FWYAEnrs';
 
 const configured = /^https:\/\/.+\.supabase\.co\/?$/.test(SUPABASE_URL)
   && !/YOUR-PROJECT/.test(SUPABASE_URL)
@@ -357,8 +357,11 @@ const NARRATION_BUCKET = 'narration';  // Supabase Storage bucket for the MP3s
    no key, callable straight from the browser). Returns real MP3 audio, so it
    works on every device incl. iOS/Linux and gives lock-screen playback. It's
    unofficial/best-effort (length + rate limits); swap for your own Piper backend
-   via TTS_ENDPOINT for production. Set SE_ENABLED=false to turn it off. */
-const SE_ENABLED = true;
+   via TTS_ENDPOINT for production. Set SE_ENABLED=false to turn it off.
+   NOTE: as of late 2026 StreamElements' keyless endpoint returns 401, so this is
+   OFF. Voice = on-device screen reader (Web Speech). Flip on only if you have a
+   working endpoint, or use a self-hosted Piper backend via TTS_ENDPOINT. */
+const SE_ENABLED = false;
 const SE_VOICE = 'Brian';              // Polly voices: Brian, Amy, Emma, Joanna, Matthew, Russell…
 
 const canGenerate = !!TTS_ENDPOINT || SE_ENABLED;
@@ -388,7 +391,12 @@ const store = {
         }
         this._cache = posts;
         return posts;
-      }catch(e){ console.warn('Cloud read failed — showing local copy.', e); toast('Offline — showing local posts.'); }
+      }catch(e){
+        console.warn('Cloud read failed — showing local copy.', e);
+        const missing = e && (e.code==='PGRST205' || /schema cache|does not exist/i.test(e.message||''));
+        if (missing) toast('Run supabase-schema.sql to enable shared posts.');
+        else toast('Offline — showing local posts.');
+      }
     }
     return localAll();
   },
