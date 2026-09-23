@@ -386,7 +386,18 @@ const COLS = ['id','title','dek','author','initials','date','tags','html','audio
 const postToRow = p => COLS.reduce((r,k)=>(r[k]=p[k],r),{});
 const rowToPost = r => ({...r, tags: Array.isArray(r.tags) ? r.tags : (r.tags ? [r.tags] : [])});
 
-function localAll(){ try{ const raw=localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){} localStorage.setItem(KEY,JSON.stringify(SEED)); return SEED.slice(); }
+/* seed posts are canonical from code — refresh them so edits (like restoring the
+   full essay) propagate even when an older copy is cached in localStorage */
+function refreshSeeds(posts){
+  for (const s of SEED){ const i=posts.findIndex(p=>p.id===s.id); if(i>=0) posts[i]=s; else posts.push(s); }
+  return posts;
+}
+function localAll(){
+  let posts=[]; try{ const raw=localStorage.getItem(KEY); if(raw) posts=JSON.parse(raw); }catch(e){}
+  posts = refreshSeeds(Array.isArray(posts)?posts:[]);
+  localStorage.setItem(KEY, JSON.stringify(posts));
+  return posts;
+}
 function localAdd(post){ const posts=localAll(); posts.unshift(post); localStorage.setItem(KEY,JSON.stringify(posts)); }
 
 const store = {
