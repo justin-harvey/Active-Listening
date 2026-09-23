@@ -1,6 +1,6 @@
 # Active Listener
 
-**🔊 Live:** https://justin-harvey.github.io/Active-Listening/
+**🔊 Live:** https://active-listener.netlify.app/
 
 **Hear what people are thinking.** A place to post what's on your mind and let
 anyone listen — press play and it's read aloud, hands-free, while you drive,
@@ -48,9 +48,9 @@ const TTS_ENDPOINT = ''; // narration endpoint for lock-screen audio (optional)
 
 ## Deploy
 
-Hosted on **GitHub Pages** (Settings → Pages → Deploy from a branch → `main` /
-`root`). Any static host works — Netlify drag-and-drop, etc. Data is in Supabase,
-so every visitor sees the same feed and can publish to it.
+Hosted on **Netlify** at https://active-listener.netlify.app/. Any static host
+works — it's a single `index.html`. Data is in Supabase, so every visitor sees
+the same feed and can publish to it.
 
 ## Debugging the reader
 
