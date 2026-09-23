@@ -352,7 +352,16 @@ const CLOUD = !!sb;
 const TTS_ENDPOINT = '';               // e.g. `${SUPABASE_URL}/functions/v1/narrate`
 const TTS_VOICE = 'aria';              // voice id your endpoint understands
 const NARRATION_BUCKET = 'narration';  // Supabase Storage bucket for the MP3s
-const canGenerate = !!TTS_ENDPOINT;
+
+/* PROOF-OF-CONCEPT free voice: StreamElements' public TTS (Amazon Polly voices,
+   no key, callable straight from the browser). Returns real MP3 audio, so it
+   works on every device incl. iOS/Linux and gives lock-screen playback. It's
+   unofficial/best-effort (length + rate limits); swap for your own Piper backend
+   via TTS_ENDPOINT for production. Set SE_ENABLED=false to turn it off. */
+const SE_ENABLED = true;
+const SE_VOICE = 'Brian';              // Polly voices: Brian, Amy, Emma, Joanna, Matthew, Russell…
+
+const canGenerate = !!TTS_ENDPOINT || SE_ENABLED;
 
 /* ---------- store: Supabase-backed, with a localStorage fallback ---------- */
 const KEY = 'aloud.posts.v1';
@@ -661,7 +670,10 @@ async function publish(){
   };
   const btn = document.querySelector('.composer-actions .btn.accent');
   if (btn){ btn.disabled = true; btn.style.opacity = .6; btn.textContent = 'Publishing…'; }
-  if (canGenerate){
+  // Pre-generate lock-screen audio at publish time only for a fast SERVER endpoint.
+  // The StreamElements POC makes many small requests, so we leave that to the
+  // on-demand 🔒 button on the reader and keep publishing instant.
+  if (TTS_ENDPOINT){
     if (btn) btn.textContent = 'Generating audio…';
     try{ post.audio_url = await synthNarration(post, body, true); }
     catch(e){ console.warn('narration at publish failed — post goes out without lock-screen audio.', e); }
@@ -831,15 +843,19 @@ const player = {
   async generate(){
     if (!canGenerate || !this.post) return;
     const btn=this.els.genBtn; const label=btn.textContent;
+    this.stopInternal();                       // stop on-device reading while we fetch
     btn.disabled=true; btn.textContent='Generating…';
+    toast('Generating audio… first time can take a moment.');
+    dbg('generate() start');
     try{
       const text = this.blocks.map(b=>b.text).join('\n\n');
       const url = await synthNarration(this.post, text, true);
       this.post.audio_url = url;
       this.enableAudio(url);
+      dbg('generate() done ->', url.slice(0,32));
       toast('Lock-screen audio ready 🔒▶');
       this.play();
-    }catch(e){ console.warn('generate failed',e); toast('Couldn’t generate audio.'); btn.disabled=false; btn.textContent=label; }
+    }catch(e){ console.warn('generate failed',e); dbg('generate FAILED:', e&&e.message); toast('Audio failed: '+(e&&e.message||'unknown')); btn.disabled=false; btn.textContent=label; }
   },
 
   /* ---------------- shared controls ---------------- */
@@ -976,11 +992,20 @@ function splitSentences(text){
   return out.length ? out : [text];
 }
 
-/* synthesize narration via TTS_ENDPOINT; persist to Supabase Storage when possible */
+/* synthesize narration to one MP3 blob, via TTS_ENDPOINT (server) or the free
+   StreamElements POC; persist to Supabase Storage when possible */
 async function synthNarration(post, text, persist){
-  const res = await fetch(TTS_ENDPOINT, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text, voice:TTS_VOICE})});
-  if (!res.ok) throw new Error('TTS endpoint '+res.status);
-  const blob = await res.blob();
+  let blob;
+  if (TTS_ENDPOINT){
+    dbg('narrate via endpoint', TTS_ENDPOINT);
+    const res = await fetch(TTS_ENDPOINT, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text, voice:TTS_VOICE})});
+    if (!res.ok) throw new Error('TTS endpoint '+res.status);
+    blob = await res.blob();
+  } else if (SE_ENABLED){
+    blob = await synthStreamElements(text);
+  } else {
+    throw new Error('no TTS configured');
+  }
   let url = URL.createObjectURL(blob);
   if (persist && CLOUD){
     try{
@@ -996,6 +1021,38 @@ async function synthNarration(post, text, persist){
     }catch(e){ console.warn('narration persist failed — using session audio.', e); }
   }
   return url;
+}
+
+/* StreamElements free TTS: chunk under its length limit, fetch each chunk as MP3,
+   concatenate into one seekable track. No key; called straight from the browser. */
+async function synthStreamElements(text){
+  const chunks = seChunks(text, 280);
+  dbg('StreamElements: '+chunks.length+' chunk(s), voice '+SE_VOICE);
+  const parts = [];
+  for (let i=0;i<chunks.length;i++){
+    const url = 'https://api.streamelements.com/kappa/v2/speech?voice='+encodeURIComponent(SE_VOICE)+'&text='+encodeURIComponent(chunks[i]);
+    let res;
+    try{ res = await fetch(url); }catch(e){ throw new Error('StreamElements network/CORS error'); }
+    if (!res.ok) throw new Error('StreamElements '+res.status+(res.status===400?' (chunk too long?)':''));
+    const ct = res.headers.get('content-type')||'';
+    if (!/audio/i.test(ct)) throw new Error('StreamElements returned '+(ct||'no audio'));
+    parts.push(new Uint8Array(await res.arrayBuffer()));
+    dbg('  chunk '+(i+1)+'/'+chunks.length+' ok');
+  }
+  return new Blob(parts, {type:'audio/mpeg'});
+}
+/* pack sentences into chunks under `limit` chars (StreamElements caps text length) */
+function seChunks(text, limit){
+  const out=[]; let buf='';
+  for (const s of splitSentences(text)){
+    if ((buf+' '+s).trim().length > limit){
+      if (buf){ out.push(buf.trim()); buf=''; }
+      if (s.length > limit){ for(let i=0;i<s.length;i+=limit) out.push(s.slice(i,i+limit).trim()); }
+      else buf=s;
+    } else buf = buf ? buf+' '+s : s;
+  }
+  if (buf.trim()) out.push(buf.trim());
+  return out.length ? out : [text.slice(0,limit)];
 }
 
 /* generate a 512×512 lock-screen cover from the post */
