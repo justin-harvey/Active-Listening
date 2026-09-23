@@ -408,13 +408,11 @@ const store = {
       try{
         const { data, error } = await sb.from('posts').select('*').order('created_at',{ascending:false});
         if (error) throw error;
-        const posts = data.map(rowToPost);
-        // make sure the flagship seed post exists exactly once
-        for (const s of SEED){
-          if (!posts.some(p => p.id === s.id)){
-            try{ await sb.from('posts').upsert(postToRow(s)); posts.push(s); }catch(e){}
-          }
-        }
+        // seeds are canonical from CODE — override any (possibly stale) copy stored
+        // in the database so the full essay always wins over an old cloud row.
+        const posts = refreshSeeds(data.map(rowToPost));
+        // best-effort: write the seed to the DB only if it's entirely absent there
+        for (const s of SEED){ if (!data.some(r => r.id === s.id)){ try{ await sb.from('posts').insert(postToRow(s)); }catch(e){} } }
         this._cache = posts;
         return posts;
       }catch(e){
@@ -427,6 +425,7 @@ const store = {
     return localAll();
   },
   async get(id){
+    const seed = SEED.find(s => s.id === id); if (seed) return seed;   // seeds always from code, never a stale DB row
     if (this._cache){ const hit = this._cache.find(p => p.id === id); if (hit) return hit; }
     if (CLOUD){
       try{ const { data, error } = await sb.from('posts').select('*').eq('id',id).maybeSingle(); if (error) throw error; if (data) return rowToPost(data); }
@@ -1136,7 +1135,7 @@ setInterval(()=>{
 document.addEventListener('keydown',e=>{ if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; if(!player.mounted)return; if(e.code==='Space'){e.preventDefault();player.toggle();} else if(e.code==='ArrowLeft')player.seekRel(-15); else if(e.code==='ArrowRight')player.seekRel(30); });
 
 /* boot */
-const BUILD = 'build 2026-09-23 · full-essay';
+const BUILD = 'build 2026-09-23b · seed-from-code';
 try{ const bs=document.getElementById('buildStamp'); if(bs) bs.textContent = BUILD; }catch(e){}
 console.log('[Active Listener]', BUILD);
 route();
