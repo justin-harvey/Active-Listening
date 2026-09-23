@@ -241,6 +241,7 @@
       <a href="#/" onclick="go('#/');return false">Feed</a>
       <a href="#/new" onclick="go('#/new');return false">Write</a>
       <a href="#" onclick="toast('Listen anywhere — coming soon.');return false">About</a>
+      <span id="buildStamp" style="margin-left:18px;opacity:.6;font-variant-numeric:tabular-nums"></span>
     </div>
   </div>
 </footer>
@@ -1135,6 +1136,9 @@ setInterval(()=>{
 document.addEventListener('keydown',e=>{ if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; if(!player.mounted)return; if(e.code==='Space'){e.preventDefault();player.toggle();} else if(e.code==='ArrowLeft')player.seekRel(-15); else if(e.code==='ArrowRight')player.seekRel(30); });
 
 /* boot */
+const BUILD = 'build 2026-09-23 · full-essay';
+try{ const bs=document.getElementById('buildStamp'); if(bs) bs.textContent = BUILD; }catch(e){}
+console.log('[Active Listener]', BUILD);
 route();
 </script>
 </body>
