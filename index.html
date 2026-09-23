@@ -100,6 +100,13 @@
   /* listen banner */
   .listen{position:sticky;top:60px;z-index:50;margin:24px 0 8px}
   .listen-inner{background:linear-gradient(135deg,#1c1813,#2a231b);color:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;border:1px solid rgba(255,255,255,.06)}
+  .engine-pick{display:flex;gap:6px;padding:12px 12px 0}
+  .eng{flex:1;font:inherit;font-weight:600;font-size:12.5px;cursor:pointer;border-radius:11px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:#cfc7ba;padding:9px 10px;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:.15s}
+  .eng:hover{border-color:rgba(255,255,255,.3);color:#fff}
+  .eng svg{width:15px;height:15px;flex:none}
+  .eng.on{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 4px 14px rgba(232,84,58,.4)}
+  .engine-caption{margin:10px 12px 0;padding:10px 12px;border-radius:11px;background:rgba(232,84,58,.12);border:1px solid rgba(232,84,58,.28);color:#f0d9d2;font-size:12.5px;line-height:1.45;display:flex;gap:8px;align-items:flex-start}
+  .engine-caption svg{width:15px;height:15px;flex:none;margin-top:2px;color:var(--accent)}
   .listen-top{display:flex;align-items:center;gap:16px;padding:16px 18px}
   .play{flex:none;width:58px;height:58px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;color:#fff;display:grid;place-items:center;transition:.15s;box-shadow:0 6px 20px rgba(232,84,58,.45)}
   .play:hover{background:var(--accent-dark);transform:scale(1.04)}
@@ -336,6 +343,8 @@ const SEED = [{
   date: '2026-09-22',
   tags: ['Cost of Living', 'Wealth Inequality', 'Economy', 'Politics', 'Personal Essay'],
   html: ANDREW_HTML,
+  audio_url: 'audio/andrew-reading.m4a',
+  audio_caption: "This is me, the author, reading my own writing out loud for people for the first time. Please give it some grace.",
 }];
 
 /* ---------- backend config ----------------------------------------------
@@ -582,6 +591,13 @@ async function renderReader(id){
 
     <div class="listen">
       <div class="listen-inner">
+        ${p.audio_url ? `
+        <div class="engine-pick" id="enginePick">
+          <button class="eng" data-eng="audio" id="engAudio" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 19v3"/></svg> Author's recording</button>
+          <button class="eng" data-eng="tts" id="engTTS" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg> Read it to me</button>
+        </div>
+        <div class="engine-caption" id="engineCaption"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 16v-4M12 8h.01"/></svg><span>${esc(p.audio_caption||'')}</span></div>
+        ` : ''}
         <div class="listen-top">
           <button class="play" id="playBtn" aria-label="Play or pause"><svg class="ico-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><svg class="ico-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg></button>
           <div class="listen-copy">
@@ -787,17 +803,34 @@ const player = {
     this.els.bar.onclick=e=>{ const r=this.els.bar.getBoundingClientRect(); this.seekFraction((e.clientX-r.left)/r.width); };
     if (this.els.genBtn) this.els.genBtn.onclick=()=>this.generate();
 
-    // choose engine
-    if (post && post.audio_url){ this.enableAudio(post.audio_url); }
+    // choose engine — if the post has a real recording, offer BOTH engines and
+    // let the listener pick; default to the author's own recording.
+    const ep = document.getElementById('enginePick');
+    if (post && post.audio_url && ep){
+      ep.querySelectorAll('.eng').forEach(b=> b.onclick=()=>this.setEngine(b.dataset.eng));
+      this.setEngine('audio');
+    } else if (post && post.audio_url){ this.enableAudio(post.audio_url); }
     else { this.enableTTS(); }
+  },
+
+  /* switch between the author's recording and on-device read-along, live */
+  setEngine(mode){
+    if (!this.post) return;
+    this.stopInternal();
+    if (mode==='audio' && this.post.audio_url) this.enableAudio(this.post.audio_url);
+    else this.enableTTS();
+    const ep = document.getElementById('enginePick');
+    if (ep) ep.querySelectorAll('.eng').forEach(b=> b.classList.toggle('on', b.dataset.eng===this.mode));
+    const cap = document.getElementById('engineCaption');
+    if (cap) cap.style.display = this.mode==='audio' ? '' : 'none';
   },
 
   /* ---------------- AUDIO ENGINE (lock-screen) ---------------- */
   enableAudio(url){
     this.mode='audio';
     audioEl.src=url; audioEl.playbackRate=this.rate; audioEl.currentTime=0;
-    this.els.modeLabel.textContent='Narrated audio';
-    this.els.listenSub.textContent='Real audio — keeps playing with your screen locked.';
+    this.els.modeLabel.textContent = (this.post && this.post.audio_url===url) ? "Author's recording" : 'Narrated audio';
+    this.els.listenSub.textContent='Real audio, keeps playing with your screen locked.';
     this.els.qualityText.textContent='Lock-screen ready 🔒';
     if(this.els.voicePick) this.els.voicePick.style.display='none';
     if(this.els.genBtn) this.els.genBtn.hidden=true;
@@ -1135,7 +1168,7 @@ setInterval(()=>{
 document.addEventListener('keydown',e=>{ if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; if(!player.mounted)return; if(e.code==='Space'){e.preventDefault();player.toggle();} else if(e.code==='ArrowLeft')player.seekRel(-15); else if(e.code==='ArrowRight')player.seekRel(30); });
 
 /* boot */
-const BUILD = 'build 2026-09-23b · seed-from-code';
+const BUILD = 'build 2026-09-23c · author-recording';
 try{ const bs=document.getElementById('buildStamp'); if(bs) bs.textContent = BUILD; }catch(e){}
 console.log('[Active Listener]', BUILD);
 route();
