@@ -12,3 +12,12 @@
   for = "/index.html"
   [headers.values]
     Cache-Control = "no-cache"
+
+# Audio is large and versioned in its filename — cache it hard so repeat plays
+# don't re-download from origin. The blanket /* no-cache above would otherwise
+# turn every listen into a full re-fetch and chew through bandwidth. This more
+# specific rule wins over /* for the audio path.
+[[headers]]
+  for = "/audio/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

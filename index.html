@@ -343,7 +343,7 @@ const SEED = [{
   date: '2026-09-22',
   tags: ['Cost of Living', 'Wealth Inequality', 'Economy', 'Politics', 'Personal Essay'],
   html: ANDREW_HTML,
-  audio_url: 'audio/andrew-reading.m4a',
+  audio_url: 'audio/andrew-reading-v2.m4a',
   audio_caption: "This is me, the author, reading my own writing out loud for people for the first time. Please give it some grace.",
 }];
 
@@ -1168,7 +1168,7 @@ setInterval(()=>{
 document.addEventListener('keydown',e=>{ if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; if(!player.mounted)return; if(e.code==='Space'){e.preventDefault();player.toggle();} else if(e.code==='ArrowLeft')player.seekRel(-15); else if(e.code==='ArrowRight')player.seekRel(30); });
 
 /* boot */
-const BUILD = 'build 2026-09-23c · author-recording';
+const BUILD = 'build 2026-09-23d · louder-audio+cache-fix';
 try{ const bs=document.getElementById('buildStamp'); if(bs) bs.textContent = BUILD; }catch(e){}
 console.log('[Active Listener]', BUILD);
 route();
