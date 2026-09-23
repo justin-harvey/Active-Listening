@@ -201,6 +201,14 @@
   .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:12px;font-size:13.5px;font-weight:500;box-shadow:0 12px 40px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:.28s;z-index:80;max-width:90vw;text-align:center}
   .toast.show{opacity:1;transform:translate(-50%,0)}
 
+  /* on-screen debug log (enable with ?debug=1) */
+  .dbg{position:fixed;left:0;right:0;bottom:0;z-index:200;background:rgba(10,8,6,.94);color:#e8e2d6;font:11px/1.45 ui-monospace,Menlo,Consolas,monospace;border-top:2px solid var(--accent);max-height:44vh;display:flex;flex-direction:column}
+  .dbg-bar{display:flex;gap:8px;align-items:center;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.12);flex:none}
+  .dbg-bar b{color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
+  .dbg-bar #dbgState{color:#a89f92;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dbg-bar button{font:inherit;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:3px 9px;cursor:pointer}
+  .dbg-body{margin:0;padding:8px 10px;overflow:auto;white-space:pre-wrap;word-break:break-word;flex:1}
+
   @media(max-width:520px){
     .listen{top:58px}
     .play{width:52px;height:52px}
@@ -403,6 +411,34 @@ const listenMin = w => Math.max(1, Math.round(w/150));
 function go(hash){ if (location.hash === hash) route(); else location.hash = hash; }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2600); }
 function dateLabel(d){ try { return new Date(d+'T00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); } catch(e){ return d; } }
+
+/* ---------- on-screen debug log (for debugging TTS on a phone) ----------
+   Turn on by adding ?debug=1 to the URL (off with ?debug=0). Traces every
+   speech event with a Copy button so it can be shared. */
+if (/[?&#]debug=0/i.test(location.href)) localStorage.removeItem('al.debug');
+else if (/[?&#]debug/i.test(location.href)) localStorage.setItem('al.debug','1');
+const DEBUG = localStorage.getItem('al.debug')==='1';
+let _dbgEl=null; const _dbgLines=[];
+function dbg(){
+  const line = [...arguments].map(a=>typeof a==='object'?JSON.stringify(a):String(a)).join(' ');
+  const stamp = new Date().toISOString().slice(11,23);
+  _dbgLines.push(stamp+' '+line); if(_dbgLines.length>400)_dbgLines.shift();
+  try{ console.log('[AL]',line); }catch(e){}
+  if(!DEBUG) return;
+  if(!_dbgEl) _buildDbg();
+  const body=_dbgEl.querySelector('.dbg-body'); body.textContent=_dbgLines.slice(-80).join('\n'); body.scrollTop=1e9;
+}
+function _buildDbg(){
+  _dbgEl=document.createElement('div'); _dbgEl.className='dbg';
+  _dbgEl.innerHTML='<div class="dbg-bar"><b>debug</b><span id="dbgState"></span><button data-a="copy">copy</button><button data-a="clear">clear</button><button data-a="hide">×</button></div><pre class="dbg-body"></pre>';
+  document.body.appendChild(_dbgEl);
+  _dbgEl.addEventListener('click',e=>{ const a=e.target.dataset.a; if(!a)return;
+    if(a==='copy'){ (navigator.clipboard?navigator.clipboard.writeText(_dbgLines.join('\n')):0); toast('Debug log copied.'); }
+    if(a==='clear'){ _dbgLines.length=0; _dbgEl.querySelector('.dbg-body').textContent=''; }
+    if(a==='hide'){ _dbgEl.remove(); _dbgEl=null; localStorage.removeItem('al.debug'); }
+  });
+  setInterval(()=>{ if(!_dbgEl||!('speechSynthesis' in window))return; const s=speechSynthesis; _dbgEl.querySelector('#dbgState').textContent=`speaking=${s.speaking} paused=${s.paused} voices=${(player.voices||[]).length} mode=${player.mode}`; },500);
+}
 
 /* =========================================================================
    ROUTER
@@ -752,6 +788,7 @@ const player = {
     setTimeout(()=>this._pollVoices(n+1), 250);
   },
   _noVoices(){
+    dbg('NO VOICES available on this browser');
     this.els.voiceSelect.innerHTML='<option>No voices installed</option>';
     this.els.qualityText.textContent='No voice on this device';
     this.els.listenSub.innerHTML='This browser has no speech voices installed. On Linux: <code>sudo apt install speech-dispatcher espeak-ng</code> then restart the browser — or open this on a phone/Mac/Windows, which ship voices. (Server-side narration removes this need — see SETUP.md.)';
@@ -782,7 +819,8 @@ const player = {
     let idx = prevURI ? all.findIndex(v=>v.voiceURI===prevURI) : -1;
     if (idx<0) idx = 0; // best on-device voice
     this.els.voiceSelect.value=idx; this.voice=all[idx];
-    this.els.voiceSelect.onchange=()=>{ this.voice=all[+this.els.voiceSelect.value]; this._fails=0; this._reflectVoiceQuality(); if(this.playing && this.mode==='tts') this.jumpTo(this.idx); };
+    dbg('voices loaded:', all.length, '| chosen:', this.voice.name, '| local:', this.voice.localService, '| lang:', this.voice.lang);
+    this.els.voiceSelect.onchange=()=>{ this.voice=all[+this.els.voiceSelect.value]; this._fails=0; this._reflectVoiceQuality(); dbg('voice changed ->', this.voice.name, 'local:', this.voice.localService); if(this.playing && this.mode==='tts') this.jumpTo(this.idx); };
     if(this.mode==='tts') this._reflectVoiceQuality();
   },
 
@@ -849,6 +887,7 @@ const player = {
      drops an utterance spoken in the same tick as cancel(). Used for start/seek. */
   jumpTo(i){
     if (!('speechSynthesis' in window)) return;
+    dbg('jumpTo', i, 'of', this.units.length);
     clearTimeout(this._t); clearTimeout(this._watch);
     try{ speechSynthesis.cancel(); }catch(e){}
     this._fails=0;
@@ -869,33 +908,38 @@ const player = {
     const u=new SpeechSynthesisUtterance(unit.text);
     if(this.voice) u.voice=this.voice;
     u.lang=(this.voice&&this.voice.lang)||'en-US'; u.rate=this.rate; u.pitch=1;
+    dbg('speak', i, JSON.stringify(unit.text.slice(0,44)));
     const t0=performance.now(); let started=false, done=false;
     const clearWatch=()=>clearTimeout(this._watch);
-    u.onstart=()=>{ started=true; this._fails=0; };
+    u.onstart=()=>{ started=true; this._fails=0; dbg('  onstart', i); };
     u.onend=()=>{
-      if(done) return; done=true; clearWatch();
+      const ms=Math.round(performance.now()-t0);
+      if(done){ dbg('  onend(dup)', i); return; } done=true; clearWatch();
+      dbg('  onend', i, 'started='+started, ms+'ms');
       if(!this.playing || this.mode!=='tts' || this.idx!==i) return;
-      if(!started && performance.now()-t0 < 350){ this._speakFailed(i); return; } // never actually spoke
+      if(!started && ms < 350){ this._speakFailed(i); return; } // never actually spoke
       this._fails=0; this._speak(i+1);
     };
     u.onerror=(e)=>{
       const err=e&&e.error; if(done) return;
+      dbg('  onerror', i, err);
       if(err==='interrupted'||err==='canceled'){ done=true; clearWatch(); return; }
       done=true; clearWatch();
       if(!this.playing || this.mode!=='tts' || this.idx!==i) return;
-      console.warn('speech error:',err); this._speakFailed(i);
+      this._speakFailed(i);
     };
     // watchdog: iOS Safari sometimes halts a long-ish utterance and never fires
     // onend. Estimate speak time and, if nothing happened, cancel and move on.
     const estMs = (unit.text.length/(11*this.rate))*1000 + 4000;
-    this._watch=setTimeout(()=>{ if(done||!this.playing||this.idx!==i) return; done=true; try{speechSynthesis.cancel();}catch(e){} this._speak(i+1); }, estMs);
+    this._watch=setTimeout(()=>{ if(done||!this.playing||this.idx!==i) return; done=true; dbg('  WATCHDOG advance', i, '(no onend in', Math.round(estMs)+'ms)'); try{speechSynthesis.cancel();}catch(e){} this._speak(i+1); }, estMs);
     try{ speechSynthesis.resume(); speechSynthesis.speak(u); }
-    catch(err){ done=true; clearWatch(); console.warn(err); this._speakFailed(i); }
+    catch(err){ done=true; clearWatch(); dbg('  speak() threw', String(err)); this._speakFailed(i); }
   },
 
   /* an utterance produced no sound — recover instead of skipping */
   _speakFailed(i){
     this._fails=(this._fails||0)+1;
+    dbg('  FAILED', i, 'fails='+this._fails, 'voice='+(this.voice&&this.voice.name));
     if(this._fails===1 && this.voice && !this.voice.localService){
       // most likely a failing cloud voice — switch to on-device and retry
       const local=this._bestLocalVoice();
@@ -990,17 +1034,14 @@ function updatePositionState(){
   if (isFinite(audioEl.duration)){ try{ navigator.mediaSession.setPositionState({duration:audioEl.duration, position:audioEl.currentTime, playbackRate:audioEl.playbackRate}); }catch(e){} }
 }
 
-/* Keep TTS alive. The pause()/resume() trick defeats Chrome's ~15s cutoff but
-   BREAKS speech on Apple WebKit (iOS/Safari), so only run it off-Apple; on Apple
-   we just resume if something accidentally left it paused. */
-const IS_APPLE = /iP(hone|ad|od)/.test(navigator.platform)
-  || (/^((?!chrome|android|crios|edg).)*safari/i.test(navigator.userAgent))
-  || (navigator.maxTouchPoints>1 && /Mac/.test(navigator.platform));
+/* Keep TTS alive. We now speak one short sentence at a time, so Chrome's ~15s
+   single-utterance cutoff can't trigger and the old pause()/resume() keepalive
+   (which also stuttered playback and broke Apple WebKit) is gone. We only nudge
+   a resume if something accidentally left the queue paused. */
 setInterval(()=>{
   if(player.mode!=='tts' || !player.playing || !('speechSynthesis' in window)) return;
-  if(speechSynthesis.paused){ try{ speechSynthesis.resume(); }catch(e){} return; }
-  if(!IS_APPLE && speechSynthesis.speaking){ try{ speechSynthesis.pause(); speechSynthesis.resume(); }catch(e){} }
-}, 10000);
+  if(speechSynthesis.paused){ dbg('keepalive: resuming a paused queue'); try{ speechSynthesis.resume(); }catch(e){} }
+}, 8000);
 document.addEventListener('keydown',e=>{ if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; if(!player.mounted)return; if(e.code==='Space'){e.preventDefault();player.toggle();} else if(e.code==='ArrowLeft')player.seekRel(-15); else if(e.code==='ArrowRight')player.seekRel(30); });
 
 /* boot */
