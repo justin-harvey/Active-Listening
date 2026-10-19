@@ -676,6 +676,12 @@ function renderComposer(){
       <div class="syntax">Formatting: blank line = new paragraph &nbsp;·&nbsp; start a line with <code>## </code> for a section heading &nbsp;·&nbsp; start with <code>&gt; </code> for a pull quote. That's it.</div>
       <textarea id="f-body" placeholder="Start writing…"></textarea>
     </div>
+    <div class="field">
+      <label>Narration audio <span class="hint">optional · upload a recording of you reading it aloud</span></label>
+      <div class="syntax">Attach an MP3 or M4A and it becomes the post's voice — it plays with real lock-screen controls, seek and speed. Leave this empty to use the on-device reader. Keep it small (mono, ~64–96 kbps is plenty for speech).</div>
+      <input id="f-audio" type="file" accept="audio/*,.mp3,.m4a,.aac,.ogg,.wav"${CLOUD ? '' : ' disabled'}>
+      <span class="prev-note" id="audio-status" style="margin-left:0">${CLOUD ? '' : 'Connect Supabase to upload audio.'}</span>
+    </div>
     <div class="composer-actions">
       <button class="btn accent" onclick="publish()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>
@@ -690,6 +696,16 @@ function renderComposer(){
   body.addEventListener('input', () => {
     const w = body.value.trim().split(/\s+/).filter(Boolean).length;
     document.getElementById('wc').textContent = `${w} words · ~${listenMin(Math.max(1,w))} min listen`;
+  });
+  const audio = document.getElementById('f-audio');
+  const astat = document.getElementById('audio-status');
+  if (audio && astat) audio.addEventListener('change', () => {
+    const f = audio.files && audio.files[0];
+    if (!f){ astat.textContent = ''; astat.style.color = ''; return; }
+    const mb = f.size/1048576;
+    if (mb > AUDIO_MAX_MB){ astat.textContent = `That file is ${mb.toFixed(0)} MB — keep it under ${AUDIO_MAX_MB} MB.`; astat.style.color = 'var(--accent)'; audio.value = ''; return; }
+    astat.textContent = `${f.name} · ${mb.toFixed(1)} MB — will play as this post's narration.`;
+    astat.style.color = '';
   });
 }
 
@@ -719,10 +735,18 @@ async function publish(){
   };
   const btn = document.querySelector('.composer-actions .btn.accent');
   if (btn){ btn.disabled = true; btn.style.opacity = .6; btn.textContent = 'Publishing…'; }
-  // Pre-generate lock-screen audio at publish time only for a fast SERVER endpoint.
-  // The StreamElements POC makes many small requests, so we leave that to the
-  // on-demand 🔒 button on the reader and keep publishing instant.
-  if (TTS_ENDPOINT){
+  // An author-uploaded recording wins: it IS the post's voice. Upload it to
+  // Storage, then the reader plays it with lock-screen controls (see enableAudio).
+  const audioFile = document.getElementById('f-audio')?.files?.[0];
+  if (audioFile && CLOUD){
+    if (btn) btn.textContent = 'Uploading audio…';
+    try{ post.audio_url = await uploadAuthorAudio(post, audioFile); }
+    catch(e){ console.warn('author audio upload failed — publishing without it.', e); toast('Audio upload failed — publishing text only.'); }
+  } else if (audioFile && !CLOUD){
+    toast('Audio upload needs Supabase — publishing text only.');
+  } else if (TTS_ENDPOINT){
+    // No uploaded file: optionally pre-generate lock-screen audio via a fast SERVER
+    // endpoint. (The StreamElements POC is left to the on-demand 🔒 reader button.)
     if (btn) btn.textContent = 'Generating audio…';
     try{ post.audio_url = await synthNarration(post, body, true); }
     catch(e){ console.warn('narration at publish failed — post goes out without lock-screen audio.', e); }
@@ -1058,6 +1082,24 @@ function splitSentences(text){
   return out.length ? out : [text];
 }
 
+/* author-uploaded narration: push the file to the same Storage bucket the
+   synthesized MP3s use and hand back its public URL. The post row carries that
+   URL (audio_url) so every listener gets the recording, not just this device. */
+const AUDIO_MAX_MB = 50;
+async function uploadAuthorAudio(post, file){
+  if (!(CLOUD && sb)) throw new Error('no cloud configured');
+  if (file.size > AUDIO_MAX_MB*1048576) throw new Error('file too large');
+  const ext = (String(file.name).match(/\.[a-z0-9]+$/i) || ['.mp3'])[0].toLowerCase();
+  const ctype = file.type || ({'.m4a':'audio/mp4','.aac':'audio/aac','.ogg':'audio/ogg','.wav':'audio/wav'}[ext] || 'audio/mpeg');
+  const path = 'author/' + post.id + ext;
+  const up = await sb.storage.from(NARRATION_BUCKET).upload(path, file, {upsert:true, contentType:ctype});
+  if (up.error) throw up.error;
+  const pub = sb.storage.from(NARRATION_BUCKET).getPublicUrl(path);
+  const url = pub.data && pub.data.publicUrl;
+  if (!url) throw new Error('no public URL');
+  return url;
+}
+
 /* synthesize narration to one MP3 blob, via TTS_ENDPOINT (server) or the free
    StreamElements POC; persist to Supabase Storage when possible */
 async function synthNarration(post, text, persist){
@@ -1168,7 +1210,7 @@ setInterval(()=>{
 document.addEventListener('keydown',e=>{ if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; if(!player.mounted)return; if(e.code==='Space'){e.preventDefault();player.toggle();} else if(e.code==='ArrowLeft')player.seekRel(-15); else if(e.code==='ArrowRight')player.seekRel(30); });
 
 /* boot */
-const BUILD = 'build 2026-09-23d · louder-audio+cache-fix';
+const BUILD = 'build 2026-10-19a · author-audio-upload';
 try{ const bs=document.getElementById('buildStamp'); if(bs) bs.textContent = BUILD; }catch(e){}
 console.log('[Active Listener]', BUILD);
 route();
