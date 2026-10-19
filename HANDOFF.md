@@ -69,7 +69,28 @@ The player is **dual-engine**, selected per post in `player.mount(post)`:
 
 ---
 
-## NEXT TASK: upload an audio file of the author reading the essay
+## DONE (2026-10-19): author audio upload in the composer
+Authors can now attach their own recording when they write a post. Shipped and
+verified end-to-end on the live site (`build 2026-10-19a · author-audio-upload`).
+
+- **UI:** optional "Narration audio" file field on `#/new` (accepts mp3/m4a/aac/ogg/wav),
+  shows file name + size, rejects >50 MB (`AUDIO_MAX_MB`), disabled when no cloud.
+- **Publish flow:** `publish()` calls `uploadAuthorAudio(post, file)` → uploads to the
+  `narration` Storage bucket at `author/<post-id>.<ext>` → sets `post.audio_url` to the
+  public URL. An uploaded file takes priority over any auto-synth; failure falls back to
+  text-only with a toast (never blocks publishing).
+- **Reader:** the "Author's recording" / "Read it to me" engine toggle (`#enginePick`)
+  renders **only when `post.audio_url` exists** — text-only posts show no toggle (by design).
+- **Supabase Storage bucket `narration` now EXISTS** (public, with read+write policies) —
+  the storage section of `supabase-schema.sql` was run on 2026-10-19. The old
+  "bucket not created" caveat above is resolved.
+
+Remaining idea: auto-generate a spoken version for text-only posts (server TTS via
+`TTS_ENDPOINT` → Piper on TrueNAS) so they could also offer a "play audio" option.
+
+---
+
+## (ORIGINAL) NEXT TASK: upload an audio file of the author reading the essay
 The audio engine already exists — this is exactly what it was built for. Steps:
 
 1. **Host the MP3 at a public URL.** Options:
