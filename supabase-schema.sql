@@ -16,35 +16,52 @@ create table if not exists public.posts (
   created_at  timestamptz default now()
 );
 
--- if the table already existed, add the narration column
+-- if the table already existed, add newer columns
 alter table public.posts add column if not exists audio_url text;
+-- author account that owns the post (nullable for legacy/seed rows)
+alter table public.posts add column if not exists user_id uuid references auth.users(id) on delete set null;
+-- raw composer source (## headings / > quotes) so a post can be re-opened and edited
+alter table public.posts add column if not exists source text;
 
 -- newest first when the feed loads
 create index if not exists posts_created_at_idx on public.posts (created_at desc);
 
 -- ---------------------------------------------------------------------
--- Row Level Security: anyone may READ and CREATE posts, nobody may edit
--- or delete via the public (anon) key. Tighten later when you add auth.
+-- Row Level Security: anyone may READ. Only a signed-in author may create
+-- posts, and may only edit/delete the posts they own (user_id = auth.uid()).
 -- ---------------------------------------------------------------------
 alter table public.posts enable row level security;
 
 drop policy if exists "posts public read"   on public.posts;
-drop policy if exists "posts public insert" on public.posts;
+drop policy if exists "posts public insert" on public.posts;   -- old anon-insert policy
+drop policy if exists "posts owner insert"  on public.posts;
+drop policy if exists "posts owner update"  on public.posts;
+drop policy if exists "posts owner delete"  on public.posts;
 
 create policy "posts public read"
   on public.posts for select
   using (true);
 
-create policy "posts public insert"
+create policy "posts owner insert"
   on public.posts for insert
-  with check (true);
+  to authenticated
+  with check (auth.uid() = user_id);
 
--- No delete policy => the anon key cannot remove posts.
+create policy "posts owner update"
+  on public.posts for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
--- Optional: let the client save a generated narration URL back onto a post
--- (needed only if you generate audio from the reader's 🔒 button rather than at
--- publish time). Publish-time generation does NOT need this.
--- create policy "posts update audio" on public.posts for update using (true) with check (true);
+create policy "posts owner delete"
+  on public.posts for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- NOTE: with email+password auth, new signups may need to confirm their email
+-- before they can sign in. For a small/solo platform you can turn that off at
+-- Supabase → Authentication → Providers → Email → uncheck "Confirm email" so
+-- accounts work instantly.
 
 -- =====================================================================
 -- Storage: bucket that holds the generated narration MP3s.

@@ -69,6 +69,38 @@ The player is **dual-engine**, selected per post in `player.mount(post)`:
 
 ---
 
+## DONE (2026-10-19): author accounts + edit/delete (`build 2026-10-19d`)
+Posts now belong to a signed-in author who can edit and delete them. This was built
+after a post's text was lost to a reformat with no way to recover it.
+
+- **Auth:** Supabase email+password. `currentUser` holds the session; `initAuth()`
+  reads the session on boot and subscribes to `onAuthStateChange`. Login screen at
+  `#/login` (`renderLogin`/`submitAuth`, sign-in + sign-up with display_name in user
+  metadata). Nav has a `#navAuth` slot (`renderAuthUI`): shows author name + Sign out,
+  or a Sign in button. Reading stays fully public; writing/editing/deleting need a session.
+- **Ownership:** new `posts.user_id uuid` (→ auth.users) + `posts.source text` (raw
+  composer text so a post can be reopened and edited). `COLS` updated. RLS is now
+  **public read, owner-only insert/update/delete** (`auth.uid() = user_id`).
+- **Composer:** `renderComposer(editId?)` is async, gated behind login (shows "Sign in
+  to write" when logged out). Edit route `#/edit/:id` prefills from `source` (or
+  `htmlToSource(html)` for legacy posts like the seed). `publish(editId?)` mints a new
+  post or updates the existing one; always writes `source` + `user_id`. On edit, leaving
+  the audio field empty keeps the existing recording.
+- **Edit/Delete:** the reader byline shows Edit + Delete buttons only on posts you own
+  (`store.update` / `store.remove`; delete has a confirm). Legacy/seed rows (no user_id)
+  are read-only.
+- **REQUIRES the migration** (storage section already run earlier; now also run the
+  posts section of `supabase-schema.sql`): adds user_id/source + the owner RLS policies.
+  Until it's run, publishing breaks (missing columns / insert policy). Also recommend
+  Supabase → Auth → Providers → Email → uncheck "Confirm email" so signups are instant.
+- Verified: client-side flows (gating, login UI, owner-action visibility, html↔source
+  round-trip) all green locally with no console errors. Full cloud E2E (signup→publish
+  →edit→delete) pending the migration being applied.
+
+Not built (offered, declined for now): autosave drafts, post version history.
+
+---
+
 ## DONE (2026-10-19): author audio upload in the composer
 Authors can now attach their own recording when they write a post. Shipped and
 verified end-to-end on the live site (`build 2026-10-19a · author-audio-upload`).
