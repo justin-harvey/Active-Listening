@@ -709,14 +709,25 @@ function renderComposer(){
   });
 }
 
-/* turn plain text into reader HTML with data-read blocks */
+/* turn plain text into reader HTML with data-read blocks.
+   Parsed line by line so `## ` headings and `> ` quotes are recognised at the
+   start of ANY line — they no longer need a blank line around them, and you can
+   use as many headings as you like. Consecutive plain lines join into one
+   paragraph; a blank line starts a new one. */
 function bodyToHTML(text){
-  const paras = text.replace(/\r/g,'').split(/\n{2,}/).map(s=>s.trim()).filter(Boolean);
-  return paras.map(p => {
-    if (p.startsWith('## ')) { const t = esc(p.slice(3).trim()); return `<h2 data-read data-chapter="${t.slice(0,40)}">${t}</h2>`; }
-    if (p.startsWith('> '))  { return `<p class="pull" data-read>${esc(p.slice(2).trim())}</p>`; }
-    return `<p data-read>${esc(p.replace(/\n/g,' ').trim())}</p>`;
-  }).join('\n');
+  const lines = text.replace(/\r/g,'').split('\n');
+  const out = [];
+  let para = [];
+  const flush = () => { if (para.length){ out.push(`<p data-read>${esc(para.join(' ').trim())}</p>`); para = []; } };
+  for (const raw of lines){
+    const line = raw.trim();
+    if (!line){ flush(); continue; }
+    if (line.startsWith('## ')){ flush(); const t = esc(line.slice(3).trim()); out.push(`<h2 data-read data-chapter="${t.slice(0,40)}">${t}</h2>`); continue; }
+    if (line.startsWith('> ')){  flush(); out.push(`<p class="pull" data-read>${esc(line.slice(2).trim())}</p>`); continue; }
+    para.push(line);
+  }
+  flush();
+  return out.join('\n');
 }
 async function publish(){
   const title = document.getElementById('f-title').value.trim();
@@ -1226,7 +1237,7 @@ setInterval(()=>{
 document.addEventListener('keydown',e=>{ if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; if(!player.mounted)return; if(e.code==='Space'){e.preventDefault();player.toggle();} else if(e.code==='ArrowLeft')player.seekRel(-15); else if(e.code==='ArrowRight')player.seekRel(30); });
 
 /* boot */
-const BUILD = 'build 2026-10-19b · audio-optional-publish-never-sticks';
+const BUILD = 'build 2026-10-19c · multi-heading-parser';
 try{ const bs=document.getElementById('buildStamp'); if(bs) bs.textContent = BUILD; }catch(e){}
 console.log('[Active Listener]', BUILD);
 route();
