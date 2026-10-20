@@ -734,26 +734,37 @@ async function publish(){
     html: bodyToHTML(body),
   };
   const btn = document.querySelector('.composer-actions .btn.accent');
+  const btnHTML = btn ? btn.innerHTML : '';
+  const resetBtn = () => { if (btn){ btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = btnHTML; } };
   if (btn){ btn.disabled = true; btn.style.opacity = .6; btn.textContent = 'Publishing…'; }
-  // An author-uploaded recording wins: it IS the post's voice. Upload it to
-  // Storage, then the reader plays it with lock-screen controls (see enableAudio).
-  const audioFile = document.getElementById('f-audio')?.files?.[0];
-  if (audioFile && CLOUD){
-    if (btn) btn.textContent = 'Uploading audio…';
-    try{ post.audio_url = await uploadAuthorAudio(post, audioFile); }
-    catch(e){ console.warn('author audio upload failed — publishing without it.', e); toast('Audio upload failed — publishing text only.'); }
-  } else if (audioFile && !CLOUD){
-    toast('Audio upload needs Supabase — publishing text only.');
-  } else if (TTS_ENDPOINT){
-    // No uploaded file: optionally pre-generate lock-screen audio via a fast SERVER
-    // endpoint. (The StreamElements POC is left to the on-demand 🔒 reader button.)
-    if (btn) btn.textContent = 'Generating audio…';
-    try{ post.audio_url = await synthNarration(post, body, true); }
-    catch(e){ console.warn('narration at publish failed — post goes out without lock-screen audio.', e); }
+
+  // Audio is OPTIONAL and never gates publishing. If a recording is attached we
+  // try to upload it (it becomes the post's voice), but any problem there is
+  // swallowed and the essay still goes out as text. The whole block is wrapped so
+  // the button can never get stuck mid-publish.
+  try {
+    const audioFile = document.getElementById('f-audio')?.files?.[0];
+    if (audioFile && CLOUD){
+      if (btn) btn.textContent = 'Uploading audio…';
+      try{ post.audio_url = await uploadAuthorAudio(post, audioFile); }
+      catch(e){ console.warn('author audio upload failed — publishing without it.', e); toast('Audio upload failed — publishing text only.'); }
+    } else if (audioFile && !CLOUD){
+      toast('Audio upload needs Supabase — publishing text only.');
+    } else if (TTS_ENDPOINT){
+      // No uploaded file: optionally pre-generate lock-screen audio via a fast SERVER
+      // endpoint. (The StreamElements POC is left to the on-demand 🔒 reader button.)
+      if (btn) btn.textContent = 'Generating audio…';
+      try{ post.audio_url = await synthNarration(post, body, true); }
+      catch(e){ console.warn('narration at publish failed — post goes out without lock-screen audio.', e); }
+    }
+    await store.add(post);
+    toast(CLOUD ? 'Published! 🎉' : 'Published (saved on this device).');
+    go('#/post/'+encodeURIComponent(post.id));
+  } catch (e) {
+    console.error('publish failed', e);
+    toast('Something went wrong publishing — please try again.');
+    resetBtn();
   }
-  await store.add(post);
-  toast(CLOUD ? 'Published! 🎉' : 'Published (saved on this device).');
-  go('#/post/'+encodeURIComponent(post.id));
 }
 
 /* =========================================================================
@@ -1092,7 +1103,12 @@ async function uploadAuthorAudio(post, file){
   const ext = (String(file.name).match(/\.[a-z0-9]+$/i) || ['.mp3'])[0].toLowerCase();
   const ctype = file.type || ({'.m4a':'audio/mp4','.aac':'audio/aac','.ogg':'audio/ogg','.wav':'audio/wav'}[ext] || 'audio/mpeg');
   const path = 'author/' + post.id + ext;
-  const up = await sb.storage.from(NARRATION_BUCKET).upload(path, file, {upsert:true, contentType:ctype});
+  // race the upload against a timeout so a stalled network can't wedge publishing
+  const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('upload timed out')), 60000));
+  const up = await Promise.race([
+    sb.storage.from(NARRATION_BUCKET).upload(path, file, {upsert:true, contentType:ctype}),
+    timeout,
+  ]);
   if (up.error) throw up.error;
   const pub = sb.storage.from(NARRATION_BUCKET).getPublicUrl(path);
   const url = pub.data && pub.data.publicUrl;
@@ -1210,7 +1226,7 @@ setInterval(()=>{
 document.addEventListener('keydown',e=>{ if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return; if(!player.mounted)return; if(e.code==='Space'){e.preventDefault();player.toggle();} else if(e.code==='ArrowLeft')player.seekRel(-15); else if(e.code==='ArrowRight')player.seekRel(30); });
 
 /* boot */
-const BUILD = 'build 2026-10-19a · author-audio-upload';
+const BUILD = 'build 2026-10-19b · audio-optional-publish-never-sticks';
 try{ const bs=document.getElementById('buildStamp'); if(bs) bs.textContent = BUILD; }catch(e){}
 console.log('[Active Listener]', BUILD);
 route();
